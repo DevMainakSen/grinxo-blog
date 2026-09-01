@@ -1,29 +1,61 @@
-import { blogs, blogCategories } from './blogs';
+import { blogs as seedBlogs, blogCategories as seedCategories } from './blogs';
 import type { Blog, BlogCategory } from '../types/blog';
+import {
+  getPublishedBlogs,
+  getBlogBySlug as fetchBlogBySlug,
+  getCategories as fetchCategories,
+  ApiError,
+} from '../services/blogApi';
 
-export const getBlogs = (): Blog[] => {
-  return blogs;
-};
+/**
+ * Load the published blog list from the backend API.
+ * Falls back to the bundled seed data if the API is unreachable,
+ * so the public site still renders during development without a server.
+ */
+async function loadBlogs(): Promise<Blog[]> {
+  try {
+    return await getPublishedBlogs();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 503) {
+      return seedBlogs.filter((b) => b.status !== 'draft');
+    }
+    throw error;
+  }
+}
 
-export const getFeaturedBlogs = (): Blog[] => {
+export const getBlogs = async (): Promise<Blog[]> => loadBlogs();
+
+export const getFeaturedBlogs = async (): Promise<Blog[]> => {
+  const blogs = await loadBlogs();
   return blogs.filter((blog) => blog.featured);
 };
 
-export const getTrendingBlogs = (): Blog[] => {
+export const getTrendingBlogs = async (): Promise<Blog[]> => {
+  const blogs = await loadBlogs();
   return blogs.filter((blog) => blog.trending);
 };
 
-export const getBlogBySlug = (slug: string): Blog | undefined => {
-  return blogs.find((blog) => blog.slug === slug);
+export const getBlogBySlug = async (slug: string): Promise<Blog | undefined> => {
+  try {
+    return await fetchBlogBySlug(slug);
+  } catch {
+    // API unavailable or not found — fall back to the bundled seed data.
+    return seedBlogs.find((blog) => blog.slug === slug);
+  }
 };
 
-export const getBlogsByCategory = (category: string): Blog[] => {
+export const getBlogsByCategory = async (category: string): Promise<Blog[]> => {
+  const blogs = await loadBlogs();
   return blogs.filter(
     (blog) => blog.category.toLowerCase() === category.toLowerCase()
   );
 };
 
-export const getRelatedBlogs = (blog: Blog, count = 3): Blog[] => {
+export const getRelatedBlogs = async (
+  blog: Blog,
+  count = 3
+): Promise<Blog[]> => {
+  const blogs = await loadBlogs();
   return blogs
     .filter(
       (b) =>
@@ -34,8 +66,12 @@ export const getRelatedBlogs = (blog: Blog, count = 3): Blog[] => {
     .slice(0, count);
 };
 
-export const getCategories = (): BlogCategory[] => {
-  return blogCategories;
+export const getCategories = async (): Promise<BlogCategory[]> => {
+  try {
+    return await fetchCategories();
+  } catch {
+    return seedCategories;
+  }
 };
 
 export const formatPublishedDate = (dateString: string): string => {

@@ -1,8 +1,19 @@
+export interface BlogSection {
+  id: string;
+  heading: string;
+  content: string;
+  image?: string;
+  imageCaption?: string;
+}
+
 export interface Blog {
   id: string;
   title: string;
   slug: string;
   excerpt: string;
+  /** Alias for featuredImage — used by the admin panel. */
+  thumbnail?: string;
+  /** HTML body. For seed blogs this is raw HTML; for admin-created blogs it is derived from sections. */
   content: string;
   featuredImage: string;
   author: string;
@@ -13,9 +24,14 @@ export interface Blog {
   tags: string[];
   featured: boolean;
   trending?: boolean;
+  /** Present on blogs served from the backend; optional for bundled seed fallback. */
+  status?: 'draft' | 'published';
+  sections?: BlogSection[];
 }
 
 export type BlogCategory = {
   name: string;
   count: number;
 };
+
+export type BlogStatus = Blog['status'];

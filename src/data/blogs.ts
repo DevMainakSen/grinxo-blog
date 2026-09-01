@@ -1,4 +1,4 @@
-import type { Blog, BlogCategory } from '../types/blog';
+import type { Blog, BlogCategory } from '../types/blog.ts';
 
 export const blogs: Blog[] = [
   {

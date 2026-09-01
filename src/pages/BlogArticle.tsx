@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Header from '../components/blog/Header';
 import Footer from '../components/blog/Footer';
 import BlogMeta from '../components/blog/BlogMeta';
@@ -7,29 +7,87 @@ import RelatedBlogs from '../components/blog/RelatedBlogs';
 import BlogNotFound from '../components/blog/BlogNotFound';
 import NewsletterBanner from '../components/blog/NewsletterBanner';
 import { getBlogBySlug, getRelatedBlogs } from '../data/blogService';
+import type { Blog } from '../types/blog';
+
+type ArticleState =
+  | { status: 'loading'; blog?: never }
+  | { status: 'ready'; blog: Blog }
+  | { status: 'error'; blog?: never };
+
+const initialState: ArticleState = { status: 'loading' };
 
 export default function BlogArticle() {
   const { slug } = useParams<{ slug: string }>();
-  const blog = slug ? getBlogBySlug(slug) : undefined;
 
   // Scroll to top on slug change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [slug]);
 
-  if (!blog) {
+  // Keying the loader by slug remounts it on navigation, resetting its state.
+  return <ArticleLoader key={slug ?? 'unknown'} slug={slug} />;
+}
+
+function ArticleLoader({ slug }: { slug: string | undefined }) {
+  const [state, setState] = useState<ArticleState>(initialState);
+
+  const hasSlug = Boolean(slug);
+
+  useEffect(() => {
+    if (!hasSlug) return;
+    let cancelled = false;
+    getBlogBySlug(slug as string)
+      .then((found) => {
+        if (cancelled) return;
+        setState(found ? { status: 'ready', blog: found } : { status: 'error' });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState({ status: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSlug, slug]);
+
+  if (!hasSlug) {
+    return <ArticleShell><BlogNotFound /></ArticleShell>;
+  }
+
+  if (state.status !== 'ready') {
     return (
-      <div className="page-wrapper">
-        <Header />
-        <main id="main-content">
-          <BlogNotFound />
-        </main>
-        <Footer />
-      </div>
+      <ArticleShell>
+        {state.status === 'loading' ? null : <BlogNotFound />}
+      </ArticleShell>
     );
   }
 
-  const related = getRelatedBlogs(blog, 3);
+  const blog = state.blog;
+  return <ArticleContent blog={blog} />;
+}
+
+function ArticleShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="page-wrapper">
+      <Header />
+      <main id="main-content">{children}</main>
+      <Footer />
+    </div>
+  );
+}
+
+function ArticleContent({ blog }: { blog: Blog }) {
+  const [related, setRelated] = useState<Blog[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getRelatedBlogs(blog, 3).then((r) => {
+      if (!cancelled) setRelated(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [blog]);
 
   return (
     <div className="page-wrapper">
