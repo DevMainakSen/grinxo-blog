@@ -103,8 +103,7 @@ export default function BlogDashboard() {
           <div>
             <h1 className="dashboard__title">Manage Blog Articles</h1>
             <p className="dashboard__subtitle">
-              {blogs.length} article{blogs.length === 1 ? '' : 's'} — including
-              seeded content and anything you create.
+              {blogs.length} article{blogs.length === 1 ? '' : 's'}
             </p>
           </div>
           <Link to={NEW_PATH} className="btn btn--primary">
