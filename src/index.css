@@ -577,6 +577,7 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 }
 
 .trending-card__image-wrapper {
+  position: relative;
   height: 190px;
   overflow: hidden;
 }
@@ -621,14 +622,23 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 
 .trending-card__rank {
   position: absolute;
-  top: -10px;
-  right: 12px;
-  font-size: 2.2rem;
-  font-weight: 900;
-  color: var(--color-primary-light);
-  line-height: 1;
+  top: 10px;
+  right: 10px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
   user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  letter-spacing: 0.02em;
 }
 
 /* =========================================================

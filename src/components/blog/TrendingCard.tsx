@@ -17,6 +17,10 @@ export default function TrendingCard({ blog, rank }: TrendingCardProps) {
             className="trending-card__image"
             loading="lazy"
           />
+          {/* Rank badge — solid bubble on the top-right corner of the image */}
+          <span className="trending-card__rank" aria-label={`Trending #${rank}`}>
+            #{rank}
+          </span>
         </div>
       </Link>
       <div className="trending-card__body">
@@ -26,7 +30,6 @@ export default function TrendingCard({ blog, rank }: TrendingCardProps) {
             {blog.title}
           </Link>
         </h3>
-        <span className="trending-card__rank">#{rank}</span>
       </div>
     </article>
   );
