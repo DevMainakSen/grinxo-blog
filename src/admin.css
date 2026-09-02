@@ -199,6 +199,8 @@
 .status-pill--published:hover { background: #cde9d4; }
 .status-pill--draft { background: #f0f0f0; color: #6b6b6b; }
 .status-pill--draft:hover { background: #e0e0e0; }
+.status-pill--scheduled { background: #fdf2d8; color: #a06a00; }
+.status-pill--scheduled:hover { background: #f7e2b0; }
 
 /* Alerts & toasts */
 .alert { padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.86rem; margin-bottom: 1.1rem; }
@@ -539,6 +541,22 @@
 
 /* --- Blog selector modal --- */
 .modal--wide { max-width: 560px; }
+.bs-modal__header .modal__title { margin-bottom: 0; }
+
+/* --- Schedule Publish modal --- */
+.sched-modal__grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem; margin-bottom: 0.9rem; }
+.sched-modal__preview {
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  border: 1px solid #ddd0f2;
+  font-size: 0.86rem;
+}
+.sched-modal__preview-label { color: var(--color-text-secondary); margin-right: 0.4rem; }
+.sched-modal__preview-value { font-weight: 700; color: var(--color-primary); }
+.publish-cancel { margin-top: 0.7rem; }
+.publish-status--scheduled { color: #a06a00; }
 .bs-modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
 .bs-modal__header .modal__title { margin-bottom: 0; }
 .bs-modal__search { margin-top: 0.9rem; }

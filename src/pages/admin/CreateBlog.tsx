@@ -5,6 +5,7 @@ import BlogEditor from '../../components/admin/BlogEditor';
 import { createBlog } from '../../services/blogApi';
 import { toBlogPayload } from '../../utils/blog';
 import type { Blog } from '../../types/blog';
+import type { EditorAction } from '../../components/admin/BlogEditor';
 import { slugify } from '../../utils/slug';
 import { ADMIN_BASE_PATH } from '../../services/config';
 
@@ -13,17 +14,26 @@ export default function CreateBlog() {
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  async function handleSave({ blog, action }: { blog: Blog; action: string }) {
+  async function handleSave({ blog, action }: { blog: Blog; action: EditorAction }) {
     setSaving(true);
     setSubmitError('');
     try {
       const payload = toBlogPayload({ ...blog, slug: blog.slug || slugify(blog.title) });
-      payload.status = action === 'publish' ? 'published' : 'draft';
+      payload.status = blog.status ?? 'draft';
+
       const created = await createBlog(payload as never);
+
       if (action === 'publish') {
         navigate(`${ADMIN_BASE_PATH}/blogs`, {
           replace: true,
           state: { toast: 'Article published and now live on the public blog.' },
+        });
+      } else if (action === 'schedule') {
+        navigate(`${ADMIN_BASE_PATH}/blogs`, {
+          replace: true,
+          state: {
+            toast: `Article scheduled to publish ${blog.scheduledAt ? `for ${new Date(blog.scheduledAt).toLocaleString('en-IN')}` : ''}.`,
+          },
         });
       } else {
         navigate(`${ADMIN_BASE_PATH}/blogs/${created.id}/edit`, {

@@ -17,7 +17,7 @@ async function loadBlogs(): Promise<Blog[]> {
     return await getPublishedBlogs();
   } catch (error) {
     if (error instanceof ApiError && error.status === 503) {
-      return seedBlogs.filter((b) => b.status !== 'draft');
+      return seedBlogs.filter((b) => b.status === 'published');
     }
     throw error;
   }
@@ -39,8 +39,9 @@ export const getBlogBySlug = async (slug: string): Promise<Blog | undefined> => 
   try {
     return await fetchBlogBySlug(slug);
   } catch {
-    // API unavailable or not found — fall back to the bundled seed data.
-    return seedBlogs.find((blog) => blog.slug === slug);
+    // API unavailable or not found — fall back to the bundled seed data,
+    // but only ever expose published articles to the public site.
+    return seedBlogs.find((blog) => blog.slug === slug && blog.status === 'published');
   }
 };
 

@@ -34,6 +34,7 @@ export function toBlogPayload(blog: Blog): Record<string, unknown> {
     featured: blog.featured,
     trending: blog.trending,
     status: blog.status,
+    scheduledAt: blog.scheduledAt,
     sections: blog.sections ?? [],
   };
 }

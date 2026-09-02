@@ -20,7 +20,13 @@ function normalizeInput(body: Record<string, unknown>): BlogInput {
   if (has('tags')) out.tags = Array.isArray(body.tags) ? (body.tags as string[]) : [];
   if (has('featured')) out.featured = Boolean(body.featured);
   if (has('trending')) out.trending = Boolean(body.trending);
-  if (has('status')) out.status = body.status === 'draft' ? 'draft' : 'published';
+  if (has('status')) {
+    const s = String(body.status);
+    out.status = ['draft', 'scheduled', 'published'].includes(s) ? (s as BlogInput['status']) : 'draft';
+    // A draft or published article is never scheduled — clear any old schedule.
+    if (out.status !== 'scheduled') out.scheduledAt = undefined;
+  }
+  if (has('scheduledAt')) out.scheduledAt = String(body.scheduledAt);
   return out;
 }
 
@@ -97,8 +103,32 @@ export function updateBlog(req: Request, res: Response): void {
 }
 
 export function setStatus(req: Request, res: Response): void {
-  const status = req.path.endsWith('/publish') ? 'published' : 'draft';
-  const blog = store.setStatus(String(req.params.id), status);
+  const id = String(req.params.id);
+  let blog: import('../types/blog.ts').Blog | undefined;
+  if (req.path.endsWith('/publish')) {
+    blog = store.applyPublish(id);
+  } else {
+    blog = store.applyDraft(id);
+  }
+  if (!blog) {
+    res.status(404).json({ error: 'Blog not found' });
+    return;
+  }
+  res.json(toClient(blog));
+}
+
+export function scheduleBlog(req: Request, res: Response): void {
+  const id = String(req.params.id);
+  const existing = store.getBlogById(id);
+  if (!existing) {
+    res.status(404).json({ error: 'Blog not found' });
+    return;
+  }
+  const blog = store.applySchedule(id, (req.body ?? {}).scheduledAt);
+  if (blog === null) {
+    res.status(400).json({ error: 'Invalid date. Scheduled time must be a valid future timestamp.' });
+    return;
+  }
   if (!blog) {
     res.status(404).json({ error: 'Blog not found' });
     return;

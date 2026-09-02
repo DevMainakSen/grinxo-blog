@@ -67,6 +67,12 @@ export const publishBlog = (id: string): Promise<Blog> =>
 export const draftBlog = (id: string): Promise<Blog> =>
   request<Blog>(`/api/blogs/${id}/draft`, { method: 'POST' });
 
+export const scheduleBlog = (id: string, scheduledAt: string): Promise<Blog> =>
+  request<Blog>(`/api/blogs/${id}/schedule`, {
+    method: 'POST',
+    body: JSON.stringify({ scheduledAt }),
+  });
+
 export const deleteBlog = (id: string): Promise<{ ok: true }> =>
   request<{ ok: true }>(`/api/blogs/${id}`, { method: 'DELETE' });
 

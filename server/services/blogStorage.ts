@@ -244,6 +244,18 @@ function wrapParagraphs(text: string): string {
 
 let cache: Blog[] | null = null;
 
+/**
+ * Validate a schedule timestamp: must be a parseable ISO instant that lies in
+ * the future. Returns the normalised ISO string, or null if invalid.
+ */
+export function normalizeScheduledAt(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return null;
+  if (ms <= Date.now()) return null; // must be strictly in the future
+  return new Date(ms).toISOString();
+}
+
 function readFile<T>(file: string, fallback: T): T {
   if (!existsSync(file)) return fallback;
   try {
@@ -334,6 +346,7 @@ export function createBlog(input: BlogInput): Blog {
     featured: input.featured ?? false,
     trending: input.trending ?? false,
     status: input.status ?? 'draft',
+    scheduledAt: input.scheduledAt,
     sections,
   };
   const blogs = getAllBlogs();
@@ -381,6 +394,7 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
     featured: fullInput.featured,
     trending: fullInput.trending,
     status: fullInput.status,
+    scheduledAt: fullInput.scheduledAt,
     sections,
   };
   blogs[idx] = updated;
@@ -396,8 +410,7 @@ export function deleteBlog(id: string): boolean {
   const blogs = getAllBlogs();
   const next = blogs.filter((b) => b.id !== id);
   if (next.length === blogs.length) return false;
-  persist(next);
-  return true;
+  return persist(next);
 }
 
 function estimateReadTime(input: BlogInput): number {
@@ -412,9 +425,58 @@ function estimateReadTime(input: BlogInput): number {
   return Math.max(1, Math.round(words.length / 200));
 }
 
-function persist(blogs: Blog[]): void {
+/**
+ * Transition a blog to being publicly published at `at` (defaults to now).
+ * Also used by the scheduler. Returns the updated blog, or undefined if the
+ * blog does not exist.
+ */
+export function applyPublish(id: string, at: string = new Date().toISOString()): Blog | undefined {
+  return updateBlog(id, {
+    status: 'published',
+    publishedAt: at,
+    scheduledAt: undefined,
+  });
+}
+
+/** Move a blog back to draft, clearing any schedule. */
+export function applyDraft(id: string): Blog | undefined {
+  return updateBlog(id, {
+    status: 'draft',
+    scheduledAt: undefined,
+  });
+}
+
+/**
+ * Schedule a blog to publish at `scheduledAt` (an ISO instant, must be in the
+ * future). Returns the updated blog, or null if invalid or the blog is missing.
+ */
+export function applySchedule(id: string, scheduledAt: unknown): Blog | undefined | null {
+  const at = normalizeScheduledAt(scheduledAt);
+  if (!at) return null;
+  return updateBlog(id, {
+    status: 'scheduled',
+    scheduledAt: at,
+  });
+}
+
+/** All blogs whose schedule has come due (idempotent). */
+export function getDueScheduledBlogs(now: number = Date.now()): Blog[] {
+  return getAllBlogs().filter(
+    (b) => b.status === 'scheduled' && b.scheduledAt && Date.parse(b.scheduledAt) <= now
+  );
+}
+
+/** Persist and return true on success, false if the file write failed. */
+function persist(blogs: Blog[]): boolean {
   cache = blogs;
-  writeJson(BLOGS_FILE, blogs);
+  try {
+    writeJson(BLOGS_FILE, blogs);
+    return true;
+  } catch (error) {
+    // Keep in-memory state but surface the write failure to the caller.
+    console.error('[blogStorage] failed to persist blogs.json:', error);
+    return false;
+  }
 }
 
 export function reloadFromDisk(): void {

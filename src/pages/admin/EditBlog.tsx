@@ -5,6 +5,7 @@ import BlogEditor from '../../components/admin/BlogEditor';
 import { getBlog, updateBlog } from '../../services/blogApi';
 import { normalizeBlog, toBlogPayload } from '../../utils/blog';
 import type { Blog } from '../../types/blog';
+import type { EditorAction } from '../../components/admin/BlogEditor';
 import { ADMIN_BASE_PATH } from '../../services/config';
 
 const BLOGS_PATH = `${ADMIN_BASE_PATH}/blogs`;
@@ -45,18 +46,25 @@ export default function EditBlog() {
     };
   }, [id]);
 
-  async function handleSave({ blog: target, action }: { blog: Blog; action: string }) {
+  async function handleSave({ blog: target, action }: { blog: Blog; action: EditorAction }) {
     if (!id) return;
     setSaving(true);
     setSubmitError('');
     try {
       const payload = toBlogPayload(target);
-      payload.status = action === 'publish' ? 'published' : 'draft';
+      payload.status = target.status ?? 'draft';
       const updated = await updateBlog(id, payload as never);
       if (action === 'publish') {
         navigate(BLOGS_PATH, {
           replace: true,
           state: { toast: 'Article published and now live on the public blog.' },
+        });
+      } else if (action === 'schedule') {
+        navigate(BLOGS_PATH, {
+          replace: true,
+          state: {
+            toast: `Article scheduled to publish ${target.scheduledAt ? `for ${new Date(target.scheduledAt).toLocaleString('en-IN')}` : ''}.`,
+          },
         });
       } else {
         setBlog(normalizeBlog(updated));

@@ -7,12 +7,16 @@ import { fileURLToPath } from 'node:url';
 import blogsRouter from './routes/blogs.ts';
 import uploadsRouter from './routes/uploads.ts';
 import { initStorage, UPLOADS_DIR } from './services/blogStorage.ts';
+import { startScheduler } from './services/scheduler.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 5001);
 
 // Ensure data + upload folders exist and seed blogs.json on first run.
 initStorage();
+
+// Recover due scheduled posts and periodically publish them.
+startScheduler();
 
 const app = express();
 app.use(cors());

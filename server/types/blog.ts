@@ -22,11 +22,13 @@ export interface Blog {
   tags: string[];
   featured: boolean;
   trending?: boolean;
-  status: 'draft' | 'published';
+  status: BlogStatus;
+  /** Intended publication instant (ISO). Set while the blog is scheduled. */
+  scheduledAt?: string;
   sections: BlogSection[];
 }
 
-export type BlogStatus = Blog['status'];
+export type BlogStatus = 'draft' | 'scheduled' | 'published';
 
 export interface BlogCategory {
   name: string;
@@ -53,5 +55,7 @@ export interface BlogInput {
   featured?: boolean;
   trending?: boolean;
   status?: BlogStatus;
+  /** Intended publication instant (ISO) — set when scheduling. */
+  scheduledAt?: string;
   sections?: BlogSection[];
 }

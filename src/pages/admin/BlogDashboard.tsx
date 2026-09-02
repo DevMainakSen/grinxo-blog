@@ -4,18 +4,23 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import {
   deleteBlog,
   draftBlog,
-  getPublishedBlogs,
+  getAllBlogs,
   publishBlog,
 } from '../../services/blogApi';
 import { normalizeBlog } from '../../utils/blog';
-import type { Blog } from '../../types/blog';
-import { formatDate } from '../../utils/date';
+import type { Blog, BlogStatus } from '../../types/blog';
+import { formatDate, formatScheduledAt } from '../../utils/date';
 import { ADMIN_BASE_PATH } from '../../services/config';
 
 const NEW_PATH = `${ADMIN_BASE_PATH}/blogs/new`;
 const editPath = (id: string) => `${ADMIN_BASE_PATH}/blogs/${id}/edit`;
 
-type StatusFilter = 'all' | 'draft' | 'published';
+type StatusFilter = 'all' | BlogStatus;
+
+function statusTime(blog: Blog): number {
+  const t = new Date(blog.scheduledAt || blog.publishedAt || 0).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
 
 export default function BlogDashboard() {
   const location = useLocation();
@@ -40,7 +45,7 @@ export default function BlogDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    getPublishedBlogs()
+    getAllBlogs()
       .then((data) => {
         if (cancelled) return;
         setBlogs(data.map(normalizeBlog));
@@ -74,7 +79,7 @@ export default function BlogDashboard() {
             b.tags.some((t) => t.toLowerCase().includes(q))
           : true
       )
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      .sort((a, b) => statusTime(b) - statusTime(a));
   }, [blogs, search, statusFilter, categoryFilter]);
 
   async function toggleStatus(blog: Blog) {
@@ -153,6 +158,7 @@ export default function BlogDashboard() {
           >
             <option value="all">All statuses</option>
             <option value="published">Published</option>
+            <option value="scheduled">Scheduled</option>
             <option value="draft">Draft</option>
           </select>
           <select
@@ -232,12 +238,26 @@ export default function BlogDashboard() {
                         className={`status-pill status-pill--${blog.status}`}
                         onClick={() => void toggleStatus(blog)}
                         disabled={busyId === blog.id}
-                        title={blog.status === 'published' ? 'Move to draft' : 'Publish now'}
+                        title={
+                          blog.status === 'published'
+                            ? 'Move to draft'
+                            : blog.status === 'scheduled'
+                              ? 'Publish now'
+                              : 'Publish now'
+                        }
                       >
-                        {blog.status === 'published' ? 'Published' : 'Draft'}
+                        {blog.status === 'published'
+                          ? 'Published'
+                          : blog.status === 'scheduled'
+                            ? 'Scheduled'
+                            : 'Draft'}
                       </button>
                     </td>
-                    <td className="blog-table__date">{formatDate(blog.publishedAt)}</td>
+                    <td className="blog-table__date">
+                      {blog.status === 'scheduled'
+                        ? formatScheduledAt(blog.scheduledAt ?? '', 'Asia/Kolkata', 'IST')
+                        : formatDate(blog.publishedAt ?? '')}
+                    </td>
                     <td>
                       <div className="row-actions">
                         <Link to={editPath(blog.id)} className="btn btn--ghost btn--sm">

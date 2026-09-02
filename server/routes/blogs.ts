@@ -5,6 +5,7 @@ import {
   getBlogBySlug,
   getBlogById,
   listBlogs,
+  scheduleBlog,
   setStatus,
   updateBlog,
 } from '../controllers/blogs.ts';
@@ -19,5 +20,6 @@ router.put('/:id', updateBlog);
 router.delete('/:id', deleteBlog);
 router.post('/:id/publish', setStatus);
 router.post('/:id/draft', setStatus);
+router.post('/:id/schedule', scheduleBlog);
 
 export default router;

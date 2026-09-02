@@ -2,14 +2,19 @@ import { useMemo, useState } from 'react';
 import type { Blog, BlogSection } from '../../types/blog';
 import ImagePicker from './ImagePicker';
 import SectionBuilder from './SectionBuilder';
-import { toDateInputValue } from '../../utils/date';
+import SchedulePublishModal, {
+  type ScheduleValue,
+} from './SchedulePublishModal';
+import { formatScheduledAt, toDateInputValue } from '../../utils/date';
 import { slugify } from '../../utils/slug';
+
+export type EditorAction = 'save_draft' | 'publish' | 'schedule';
 
 export interface BlogEditorProps {
   initial?: Blog;
   onSave: (payload: {
     blog: Blog;
-    action: 'save_draft' | 'publish';
+    action: EditorAction;
   }) => Promise<void>;
   saving: boolean;
   submitError?: string;
@@ -34,8 +39,11 @@ export default function BlogEditor({
     buildInitial(initial, presets)
   );
   const [slugTouched, setSlugTouched] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [schedError, setSchedError] = useState('');
 
   const isEdit = Boolean(initial);
+  const isScheduled = draft.status === 'scheduled';
 
   function set<K extends keyof Blog>(key: K, value: Blog[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -51,12 +59,43 @@ export default function BlogEditor({
     []
   );
 
-  async function handleSave(action: 'save_draft' | 'publish') {
-    const target = {
-      ...draft,
-      status: action === 'publish' ? ('published' as const) : ('draft' as const),
-    };
-    await onSave({ blog: target, action });
+  function toAction(action: EditorAction): Blog {
+    // Save actions persist edits. A scheduled blog that is merely saved keeps
+    // its schedule; everything else is captured as a draft (publish handled below).
+    if (draft.status === 'scheduled') return { ...draft, status: 'scheduled' };
+    if (action === 'publish') return { ...draft, status: 'published' };
+    return { ...draft, status: 'draft' };
+  }
+
+  async function handleSave(action: EditorAction) {
+    setSchedError('');
+    if (action === 'schedule') {
+      setShowSchedule(true);
+      return;
+    }
+    await onSave({ blog: toAction(action), action: action === 'publish' ? 'publish' : 'save_draft' });
+  }
+
+  async function handleSchedule(value: ScheduleValue) {
+    setSchedError('');
+    try {
+      await onSave({
+        blog: { ...draft, status: 'scheduled', scheduledAt: value.iso },
+        action: 'schedule',
+      });
+      setShowSchedule(false);
+    } catch (e) {
+      setSchedError(e instanceof Error ? e.message : 'Failed to schedule publish');
+    }
+  }
+
+  async function handleCancelSchedule() {
+    setSchedError('');
+    try {
+      await onSave({ blog: { ...draft, status: 'draft', scheduledAt: undefined }, action: 'save_draft' });
+    } catch (e) {
+      setSchedError(e instanceof Error ? e.message : 'Failed to cancel schedule');
+    }
   }
 
   return (
@@ -211,11 +250,35 @@ export default function BlogEditor({
         <aside className="blog-editor__sidebar">
           <section className="editor-card">
             <h2 className="editor-card__title">Status</h2>
-            <p className="publish-status">
-              {draft.status === 'published'
-                ? 'This article is currently published and visible on the public blog.'
-                : 'This article is a draft and will not appear publicly until you publish it.'}
-            </p>
+            {isScheduled && draft.scheduledAt ? (
+              <>
+                <p className="publish-status">
+                  This article is scheduled to publish automatically.
+                </p>
+                <p className="publish-status publish-status--scheduled">
+                  Scheduled for{' '}
+                  <strong>
+                    {formatScheduledAt(draft.scheduledAt, 'Asia/Kolkata', 'IST')}
+                  </strong>
+                </p>
+                {isEdit && (
+                  <button
+                    type="button"
+                    className="btn btn--danger-ghost btn--sm publish-cancel"
+                    onClick={() => void handleCancelSchedule()}
+                    disabled={saving}
+                  >
+                    Cancel schedule
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="publish-status">
+                {draft.status === 'published'
+                  ? 'This article is currently published and visible on the public blog.'
+                  : 'This article is a draft and will not appear publicly until you publish it.'}
+              </p>
+            )}
             {isEdit && (
               <p className="publish-status publish-status--hint">
                 Current status: <strong>{draft.status}</strong>
@@ -237,22 +300,44 @@ export default function BlogEditor({
         <div className="editor-actions__group">
           <button
             type="button"
-            className="btn btn--primary"
+            className="btn btn--ghost"
             onClick={() => void handleSave('save_draft')}
             disabled={saving}
           >
-            {saving ? 'Saving…' : 'Save Draft'}
+            {saving ? 'Saving…' : isScheduled ? 'Save changes' : 'Save Draft'}
           </button>
           <button
             type="button"
             className="btn btn--secondary"
+            onClick={() => void handleSave('schedule')}
+            disabled={saving}
+          >
+            {isScheduled ? 'Update Schedule' : 'Schedule Publish'}
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
             onClick={() => void handleSave('publish')}
             disabled={saving}
           >
-            Publish
+            Publish Now
           </button>
         </div>
       </div>
+
+      {showSchedule && (
+        <SchedulePublishModal
+          initialScheduledAt={draft.scheduledAt}
+          title={draft.title}
+          saving={saving}
+          error={schedError}
+          onCancel={() => {
+            setShowSchedule(false);
+            setSchedError('');
+          }}
+          onConfirm={(value) => void handleSchedule(value)}
+        />
+      )}
     </form>
   );
 }
@@ -264,6 +349,7 @@ function buildInitial(initial?: Blog, presets?: BlogEditorProps['presets']): Blo
       featuredImage: initial.featuredImage || initial.thumbnail || '',
       sections: initial.sections ?? [],
       status: initial.status ?? 'draft',
+      scheduledAt: initial.scheduledAt,
       publishedAt: initial.publishedAt ?? new Date().toISOString(),
       featured: initial.featured ?? false,
       tags: initial.tags ?? [],

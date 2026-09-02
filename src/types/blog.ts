@@ -25,7 +25,9 @@ export interface Blog {
   featured: boolean;
   trending?: boolean;
   /** Present on blogs served from the backend; optional for bundled seed fallback. */
-  status?: 'draft' | 'published';
+  status?: BlogStatus;
+  /** Intended publication instant (ISO). Set while the blog is scheduled. */
+  scheduledAt?: string;
   sections?: BlogSection[];
 }
 
@@ -34,4 +36,4 @@ export type BlogCategory = {
   count: number;
 };
 
-export type BlogStatus = Blog['status'];
+export type BlogStatus = 'draft' | 'scheduled' | 'published';
