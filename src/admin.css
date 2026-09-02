@@ -555,6 +555,10 @@
 }
 .sched-modal__preview-label { color: var(--color-text-secondary); margin-right: 0.4rem; }
 .sched-modal__preview-value { font-weight: 700; color: var(--color-primary); }
+.sched-modal__preview { margin-bottom: 0; }
+.sched-modal__preview + .alert,
+.sched-modal__preview + .modal__actions { margin-top: 1.25rem; }
+.alert + .modal__actions { margin-top: 1rem; }
 .publish-cancel { margin-top: 0.7rem; }
 .publish-status--scheduled { color: #a06a00; }
 .bs-modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
