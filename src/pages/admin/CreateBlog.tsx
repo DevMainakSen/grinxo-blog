@@ -20,10 +20,17 @@ export default function CreateBlog() {
       const payload = toBlogPayload({ ...blog, slug: blog.slug || slugify(blog.title) });
       payload.status = action === 'publish' ? 'published' : 'draft';
       const created = await createBlog(payload as never);
-      navigate(`${ADMIN_BASE_PATH}/blogs/${created.id}/edit`, {
-        replace: true,
-        state: { success: action === 'publish' ? 'published' : 'saved' },
-      });
+      if (action === 'publish') {
+        navigate(`${ADMIN_BASE_PATH}/blogs`, {
+          replace: true,
+          state: { toast: 'Article published and now live on the public blog.' },
+        });
+      } else {
+        navigate(`${ADMIN_BASE_PATH}/blogs/${created.id}/edit`, {
+          replace: true,
+          state: { success: 'saved' },
+        });
+      }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to save blog');
     } finally {

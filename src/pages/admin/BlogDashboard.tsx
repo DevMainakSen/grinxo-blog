@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import {
   deleteBlog,
@@ -18,6 +18,7 @@ const editPath = (id: string) => `${ADMIN_BASE_PATH}/blogs/${id}/edit`;
 type StatusFilter = 'all' | 'draft' | 'published';
 
 export default function BlogDashboard() {
+  const location = useLocation();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,6 +27,16 @@ export default function BlogDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Blog | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(
+    (location.state as { toast?: string } | null)?.toast ?? null
+  );
+
+  // Auto-dismiss toast after 4 seconds
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +109,18 @@ export default function BlogDashboard() {
 
   return (
     <AdminLayout>
+      {toast && (
+        <div className="toast toast--success" role="status" aria-live="polite">
+          {toast}
+          <button
+            className="toast__close"
+            aria-label="Dismiss"
+            onClick={() => setToast(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div className="dashboard">
         <div className="dashboard__topbar">
           <div>

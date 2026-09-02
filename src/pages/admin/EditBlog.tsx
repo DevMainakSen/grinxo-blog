@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import BlogEditor from '../../components/admin/BlogEditor';
 import { getBlog, updateBlog } from '../../services/blogApi';
@@ -16,6 +16,7 @@ interface SuccessState {
 export default function EditBlog() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const successState = (location.state as SuccessState | null)?.success;
 
   const [blog, setBlog] = useState<Blog | null>(null);
@@ -52,8 +53,15 @@ export default function EditBlog() {
       const payload = toBlogPayload(target);
       payload.status = action === 'publish' ? 'published' : 'draft';
       const updated = await updateBlog(id, payload as never);
-      setBlog(normalizeBlog(updated));
-      setToast(action === 'publish' ? 'published' : 'saved');
+      if (action === 'publish') {
+        navigate(BLOGS_PATH, {
+          replace: true,
+          state: { toast: 'Article published and now live on the public blog.' },
+        });
+      } else {
+        setBlog(normalizeBlog(updated));
+        setToast('saved');
+      }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to save blog');
     } finally {
