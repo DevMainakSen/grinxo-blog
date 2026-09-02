@@ -23,9 +23,188 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
+const SAFE_URL_PROTOCOLS = new Set(['http:', 'https:']);
+
+/**
+ * Normalise a URL for a public link. Returns a safe string or null if the
+ * value uses an unsafe scheme (e.g. javascript:). Bare relative paths such as
+ * /blog/slug (internal article links) are allowed.
+ */
+function sanitizeUrl(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (raw.length === 0) return null;
+
+  // Internal relative links (/blog/slug, /uploads/...) are permitted.
+  if (raw.startsWith('/')) {
+    const low = raw.toLowerCase();
+    if (low.startsWith('//') || low.includes('://')) return null;
+    return raw;
+  }
+
+  // Absolute links must use http/https (no javascript:, data:, etc.).
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (!SAFE_URL_PROTOCOLS.has(parsed.protocol)) return null;
+  return parsed.href;
+}
+
+const ALLOWED_TAGS = new Set([
+  'p', 'br', 'h1', 'h2', 'h3', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
+  'ul', 'ol', 'li', 'blockquote', 'a', 'span', 'figure', 'figcaption',
+]);
+
+const ALLOWED_ATTRS = new Set(['href', 'target', 'rel', 'style', 'class', 'alt', 'src']);
+
+/**
+ * Sanitise rich-text HTML produced by the admin editor. Drops any tag or
+ * attribute outside an explicit allow-list and hardens link behaviour so
+ * unsafe schemes cannot reach the public page.
+ */
+function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  const src = String(html);
+
+  const out: string[] = [];
+  const tagRe = /<(\/?)\s*([a-zA-Z0-9]+)([^>]*?)(\/?)>/g;
+  // Track elements whose opening tag was dropped so their inner content and
+  // closing tag are also removed (e.g. an <a> with an unsafe href).
+  const droppedStack: string[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = tagRe.exec(src)) !== null) {
+    out.push(escapeHtml(src.slice(lastIndex, m.index)));
+    const closing = m[1] === '/';
+    const tagName = m[2].toLowerCase();
+    const selfClosing = m[4] === '/';
+    const fullEnd = m.index + m[0].length;
+
+    if (closing) {
+      // If we dropped a matching element, its closing tag goes too.
+      const idx = droppedStack.lastIndexOf(tagName);
+      if (idx !== -1) {
+        droppedStack.splice(idx, 1);
+        lastIndex = fullEnd;
+        continue;
+      }
+      if (ALLOWED_TAGS.has(tagName)) out.push(`</${tagName}>`);
+    } else if (ALLOWED_TAGS.has(tagName)) {
+      let attrs = '';
+      if (!selfClosing) attrs = sanitizeAttrs(tagName, m[3]);
+      if (tagName === 'a' && attrs === '') {
+        droppedStack.push(tagName);
+        lastIndex = fullEnd;
+        continue;
+      }
+      out.push(`<${tagName}${attrs}>`);
+    }
+    lastIndex = fullEnd;
+  }
+  out.push(escapeHtml(src.slice(lastIndex)));
+
+  return out.join('').trim();
+}
+
+/**
+ * Allow-list attributes on a single opening tag. Links are forced open in a
+ * new tab with rel="noopener noreferrer".
+ */
+function sanitizeAttrs(tagName: string, rawAttrString: string): string {
+  const parts: string[] = [];
+  const attrRe = /([a-zA-Z_:][a-zA-Z0-9_:.\-]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
+  let m: RegExpExecArray | null;
+  const seen = new Set<string>();
+
+  while ((m = attrRe.exec(rawAttrString)) !== null) {
+    const name = m[1].toLowerCase();
+    if (!ALLOWED_ATTRS.has(name)) continue;
+    const value = m[3] ?? m[4] ?? m[5] ?? '';
+    const decoded = value
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+
+    if (name === 'href') {
+      const safe = sanitizeUrl(decoded);
+      if (safe === null) continue; // drop unsafe link entirely
+      parts.push(`href="${escapeHtml(safe)}"`);
+      seen.add('href');
+      continue;
+    }
+
+    if (name === 'style') {
+      parts.push(`style="${escapeHtml(sanitizeCss(decoded))}"`);
+      seen.add('style');
+      continue;
+    }
+
+    if (name === 'class') {
+      // Only allow the specific figure class we emit.
+      if (decoded.trim() === 'article-figure') {
+        parts.push('class="article-figure"');
+        seen.add('class');
+      }
+      continue;
+    }
+
+    // src / alt allowed on img-like tags only.
+    if ((name === 'src' || name === 'alt') && (tagName === 'img' || tagName === 'figure')) {
+      const safe = name === 'src' ? sanitizeUrl(decoded.replace(/^\/\//, '/')) : decoded;
+      if (name === 'src' && safe === null) continue;
+      parts.push(`${name}="${escapeHtml(name === 'src' ? safe : decoded)}"`);
+      seen.add(name === 'src' ? 'src' : 'alt');
+    }
+  }
+
+  // Force links to open in a new, secured tab.
+  if (tagName === 'a') {
+    if (!seen.has('href')) return ''; // no valid href -> drop the anchor
+    parts.push('target="_blank"');
+    parts.push('rel="noopener noreferrer"');
+  }
+
+  return parts.length ? ` ${parts.join(' ')}` : '';
+}
+
+/** Reduce a style string to a safe subset used by the editor (size/color/highlight/alignment). */
+function sanitizeCss(css: string): string {
+  const allowedProps = new Set([
+    'font-size', 'color', 'background-color', 'text-align',
+    'font-weight', 'font-style', 'text-decoration',
+  ]);
+  return css
+    .split(';')
+    .map((decl) => decl.trim())
+    .filter(Boolean)
+    .map((decl) => {
+      const sep = decl.indexOf(':');
+      if (sep === -1) return '';
+      const prop = decl.slice(0, sep).trim().toLowerCase();
+      const val = decl.slice(sep + 1).trim();
+      if (!allowedProps.has(prop)) return '';
+      // basic value safety: no url( or expression()
+      if (/url\(|expression|@import|javascript:/i.test(val)) return '';
+      return `${prop}: ${val}`;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
 /**
  * Build an HTML body string from structured sections so the public article
  * page can keep rendering content via its existing .article-prose markup.
+ *
+ * Each section's `content` may be either plain text (legacy/seed content) or
+ * rich HTML produced by the admin rich-text editor. Plain text is wrapped in
+ * <p> and escaped; rich HTML is sanitised against an allow-list and rendered
+ * verbatim so all formatting (bold, color, lists, links, alignment) survives.
  */
 export function buildContentHtml(sections: BlogSection[]): string {
   return sections
@@ -34,22 +213,32 @@ export function buildContentHtml(sections: BlogSection[]): string {
       if (section.heading.trim()) {
         parts.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
       }
-      // Paragraphs (blank-line separated) are wrapped in <p>.
-      const paragraphs = section.content
-        .split(/\n{2,}/)
-        .map((p) => p.trim())
-        .filter((p) => p.length > 0)
-        .map((p) => `<p>${p.replace(/\n/g, '<br />')}</p>`);
-      parts.push(...paragraphs);
+      const body = (section.content ?? '').trim();
+      if (body.length > 0) {
+        const looksLikeHtml = /<[a-zA-Z][\s\S]*>/.test(body);
+        parts.push(looksLikeHtml ? sanitizeHtml(body) : wrapParagraphs(body));
+      }
       if (section.image) {
         const alt = escapeHtml(section.heading || 'Section image');
-        const fig = section.imageCaption
-          ? `<figcaption>${escapeHtml(section.imageCaption)}</figcaption>`
-          : '';
-        parts.push(`<figure class="article-figure"><img src="${section.image}" alt="${alt}" />${fig}</figure>`);
+        const safeSrc = sanitizeUrl(section.image);
+        if (safeSrc) {
+          const fig = section.imageCaption
+            ? `<figcaption>${escapeHtml(section.imageCaption)}</figcaption>`
+            : '';
+          parts.push(`<figure class="article-figure"><img src="${escapeHtml(safeSrc)}" alt="${alt}" />${fig}</figure>`);
+        }
       }
       return parts.join('\n');
     })
+    .join('\n');
+}
+
+function wrapParagraphs(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0)
+    .map((p) => `<p>${p.replace(/\n/g, '<br />')}</p>`)
     .join('\n');
 }
 

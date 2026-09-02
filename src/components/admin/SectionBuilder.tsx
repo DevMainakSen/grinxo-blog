@@ -1,5 +1,8 @@
+import { lazy, Suspense } from 'react';
 import type { BlogSection } from '../../types/blog';
 import ImagePicker from './ImagePicker';
+
+const RichTextEditor = lazy(() => import('./RichTextEditor'));
 
 interface SectionBuilderProps {
   sections: BlogSection[];
@@ -100,16 +103,15 @@ export default function SectionBuilder({ sections, onChange }: SectionBuilderPro
               />
             </label>
 
-            <label className="field">
+            <div className="field">
               <span className="field__label">Content</span>
-              <textarea
-                className="field__textarea"
-                value={section.content}
-                onChange={(e) => updateSection(section.id, { content: e.target.value })}
-                placeholder="Write the section content. Leave a blank line between paragraphs."
-                rows={5}
-              />
-            </label>
+              <Suspense fallback={<div className="rte rte--loading">Loading editor…</div>}>
+                <RichTextEditor
+                  value={section.content}
+                  onChange={(html) => updateSection(section.id, { content: html })}
+                />
+              </Suspense>
+            </div>
 
             <div className="section-card__image-row">
               <div className="section-card__image-picker">
