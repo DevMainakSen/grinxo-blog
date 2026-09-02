@@ -221,10 +221,6 @@ export default function BlogEditor({
                 Current status: <strong>{draft.status}</strong>
               </p>
             )}
-            <p className="publish-tip">
-              Publishing stores the article in <code>blogs.json</code> and makes it
-              available at <code>/blog/{draft.slug || '(slug)'}</code>.
-            </p>
           </section>
         </aside>
       </div>

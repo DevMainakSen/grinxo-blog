@@ -303,8 +303,6 @@
 /* Publish status sidebar */
 .publish-status { font-size: 0.86rem; color: var(--color-text-secondary); line-height: 1.6; margin-bottom: 0.8rem; }
 .publish-status--hint { color: var(--color-text); background: var(--color-primary-light); padding: 0.5rem 0.7rem; border-radius: var(--radius-sm); }
-.publish-tip { font-size: 0.78rem; color: var(--color-text-muted); line-height: 1.55; }
-.publish-tip code { background: var(--color-bg-muted); padding: 1px 5px; border-radius: 4px; }
 
 /* --- Image picker --- */
 .image-picker { display: flex; flex-direction: column; gap: 0.6rem; }
