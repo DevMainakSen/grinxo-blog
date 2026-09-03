@@ -5,6 +5,7 @@ import GrinXOLogo from './GrinXOLogo';
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const isSavedActive = location.pathname === '/blog/saved';
 
   return (
     <header className="site-header">
@@ -19,7 +20,7 @@ export default function Header() {
             height={46}
             style={{ width: 'auto' }}
             onError={(e) => {
-              // Swap to inline SVG fallback if image file isn't present yet
+              // Swap to inline SVG fallback if image file is not present yet
               const el = e.currentTarget;
               el.style.display = 'none';
               const fallback = el.nextElementSibling as HTMLElement | null;
@@ -54,6 +55,14 @@ export default function Header() {
 
         {/* Right action icons — matching code.html */}
         <div className="header-actions">
+          <Link
+            to="/blog/saved"
+            className={`header-action-btn${isSavedActive ? ' header-action-btn--active' : ''}`}
+            aria-label="Saved articles"
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">bookmark</span>
+          </Link>
+
           <button className="header-action-btn" aria-label="Shopping cart">
             <span className="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
           </button>
@@ -87,7 +96,7 @@ export default function Header() {
       </div>
 
       {/* Mobile Nav */}
-      {menuOpen && (
+        {menuOpen && (
         <nav className="header-nav-mobile" aria-label="Mobile navigation">
           <Link
             to="/blog"
@@ -95,6 +104,13 @@ export default function Header() {
             onClick={() => setMenuOpen(false)}
           >
             Home
+          </Link>
+          <Link
+            to="/blog/saved"
+            className={`nav-link-mobile${isSavedActive ? ' nav-link-mobile--active' : ''}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            Saved Articles
           </Link>
           <a
             href="#topics"

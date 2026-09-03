@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Blog } from '../../types/blog';
 import BlogMeta from './BlogMeta';
+import BlogActions from './BlogActions';
 
 interface BlogCardProps {
   blog: Blog;
@@ -38,10 +39,14 @@ export default function BlogCard({ blog, variant = 'default' }: BlogCardProps) {
 
         <p className="blog-card__excerpt">{blog.excerpt}</p>
 
-        <Link to={`/blog/${blog.slug}`} className="blog-card__read-more">
-          Read Article
-          <span className="blog-card__arrow" aria-hidden="true">→</span>
-        </Link>
+        <div className="blog-card__footer">
+          <Link to={`/blog/${blog.slug}`} className="blog-card__read-more">
+            Read Article
+            <span className="blog-card__arrow" aria-hidden="true">→</span>
+          </Link>
+
+          <BlogActions blog={blog} variant="icon" />
+        </div>
       </div>
     </article>
   );

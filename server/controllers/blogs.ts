@@ -39,12 +39,16 @@ function isInvalid(input: BlogInput): string | null {
 export function listBlogs(req: Request, res: Response): void {
   // Public callers pass ?status=published to exclude drafts.
   const onlyPublished = String(req.query.status ?? '') === 'published';
-  const blogs = (onlyPublished ? store.getPublicBlogs() : store.getAllBlogs()).map(toClient);
+  const blogs = (onlyPublished ? store.getPublicBlogs() : store.getAllBlogs())
+    .map((b) => store.getBlogById(b.id) ?? b)
+    .map(toClient);
   res.json({ blogs });
 }
 
 export function listPublicBlogs(_req: Request, res: Response): void {
-  const blogs = store.getPublicBlogs().map(toClient);
+  const blogs = store.getPublicBlogs()
+    .map((b) => store.getBlogById(b.id) ?? b)
+    .map(toClient);
   res.json(blogs);
 }
 
@@ -69,6 +73,17 @@ export function getBlogBySlug(req: Request, res: Response): void {
 
 export function getCategories(_req: Request, res: Response): void {
   res.json(store.getCategories());
+}
+
+/** Published blogs the given client has bookmarked. Query: { clientId }. */
+export function listSavedBlogs(req: Request, res: Response): void {
+  const clientId = String(req.query.clientId ?? '');
+  if (!clientId) {
+    res.status(400).json({ error: 'clientId is required' });
+    return;
+  }
+  const blogs = store.getSavedBlogs(clientId).map(toClient);
+  res.json({ blogs });
 }
 
 export function createBlog(req: Request, res: Response): void {
@@ -143,6 +158,38 @@ export function deleteBlog(req: Request, res: Response): void {
     return;
   }
   res.json({ ok: true });
+}
+
+/** Toggle a like for a client on a blog. Body: { clientId }. */
+export function toggleLike(req: Request, res: Response): void {
+  const id = String(req.params.id);
+  const clientId = String((req.body ?? {}).clientId ?? '');
+  if (!clientId) {
+    res.status(400).json({ error: 'clientId is required' });
+    return;
+  }
+  const blog = store.toggleLike(id, clientId);
+  if (!blog) {
+    res.status(404).json({ error: 'Blog not found' });
+    return;
+  }
+  res.json(toClient(blog));
+}
+
+/** Toggle a bookmark for a client on a blog. Body: { clientId }. */
+export function toggleBookmark(req: Request, res: Response): void {
+  const id = String(req.params.id);
+  const clientId = String((req.body ?? {}).clientId ?? '');
+  if (!clientId) {
+    res.status(400).json({ error: 'clientId is required' });
+    return;
+  }
+  const blog = store.toggleBookmark(id, clientId);
+  if (!blog) {
+    res.status(404).json({ error: 'Blog not found' });
+    return;
+  }
+  res.json(toClient(blog));
 }
 
 /**

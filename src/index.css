@@ -199,6 +199,14 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
   color: var(--color-primary);
 }
 
+.header-action-btn--active {
+  color: var(--color-primary);
+}
+
+.header-action-btn--active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
 .header-action-btn--phone {
   color: var(--color-text-secondary);
   font-size: 0.8rem;
@@ -284,6 +292,7 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 
 .nav-link-mobile:last-child { border-bottom: none; }
 .nav-link-mobile:hover { color: var(--color-primary); }
+.nav-link-mobile--active { color: var(--color-primary); font-weight: 700; }
 
 /* =========================================================
    FOOTER
@@ -787,6 +796,181 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 }
 
 .blog-card__read-more:hover .blog-card__arrow { transform: translateX(4px); }
+
+.blog-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* =========================================================
+   BLOG ACTIONS  — like / bookmark / share
+   ========================================================= */
+.blog-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* Feed-card icon variant (subtle) */
+.blog-actions--icon {
+  gap: 0.4rem;
+}
+
+.blog-actions__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  transition: color var(--transition), background var(--transition);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.blog-actions__icon-btn:hover {
+  color: var(--color-primary);
+  background: var(--color-bg-muted);
+}
+
+.blog-actions__icon-btn--active {
+  color: var(--color-primary);
+}
+
+.blog-actions__icon-btn .material-symbols-outlined {
+  font-size: 19px;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.blog-actions__icon-btn--active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.blog-actions__count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  min-width: 10px;
+}
+
+.blog-actions__share-wrap {
+  position: relative;
+}
+
+/* Hero (article page) variant — labelled pills */
+.blog-actions--hero {
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.blog-actions__hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  transition: background var(--transition), border-color var(--transition);
+  cursor: pointer;
+}
+
+.blog-actions__hero-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.blog-actions__hero-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.blog-actions__hero-btn--active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.blog-actions__hero-btn--active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  color: var(--color-accent);
+}
+
+/* Share popover */
+.share-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 200px;
+  padding: 0.4rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.share-popover__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0.6rem 0.3rem;
+}
+
+.share-popover__option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.share-popover__option:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-primary);
+}
+
+.share-popover__option > .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--color-text-secondary);
+}
+
+.share-popover__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.share-popover__icon--facebook { background: #1877f2; }
+.share-popover__icon--x { background: #111; color: #fff; }
+.share-popover__icon--linkedin { background: #0a66c2; }
+
+@media (max-width: 600px) {
+  .share-popover { right: auto; left: 0; }
+}
 
 /* =========================================================
    CATEGORY SIDEBAR  — "Explore Topics"

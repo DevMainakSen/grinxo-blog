@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Header from '../components/blog/Header';
 import Footer from '../components/blog/Footer';
 import BlogMeta from '../components/blog/BlogMeta';
+import BlogActions from '../components/blog/BlogActions';
 import RelatedBlogs from '../components/blog/RelatedBlogs';
 import BlogNotFound from '../components/blog/BlogNotFound';
 import NewsletterBanner from '../components/blog/NewsletterBanner';
@@ -115,6 +116,7 @@ function ArticleContent({ blog }: { blog: Blog }) {
             <span className="article-hero__category">{blog.category}</span>
             <h1 className="article-hero__title">{blog.title}</h1>
             <BlogMeta blog={blog} variant="hero" />
+            <BlogActions blog={blog} variant="hero" />
           </div>
         </div>
 

@@ -76,6 +76,26 @@ export const scheduleBlog = (id: string, scheduledAt: string): Promise<Blog> =>
 export const deleteBlog = (id: string): Promise<{ ok: true }> =>
   request<{ ok: true }>(`/api/blogs/${id}`, { method: 'DELETE' });
 
+/** Toggle the current client's like on a blog. Returns the updated blog. */
+export const toggleLike = (id: string, clientId: string): Promise<Blog> =>
+  request<Blog>(`/api/blogs/${id}/like`, {
+    method: 'POST',
+    body: JSON.stringify({ clientId }),
+  });
+
+/** Toggle the current client's bookmark on a blog. Returns the updated blog. */
+export const toggleBookmark = (id: string, clientId: string): Promise<Blog> =>
+  request<Blog>(`/api/blogs/${id}/bookmark`, {
+    method: 'POST',
+    body: JSON.stringify({ clientId }),
+  });
+
+/** Published blogs the current client has bookmarked. */
+export const getSavedBlogs = async (clientId: string): Promise<Blog[]> => {
+  const data = await request<{ blogs: Blog[] }>(`/api/blogs/saved?clientId=${encodeURIComponent(clientId)}`);
+  return data.blogs;
+};
+
 export const uploadImage = async (file: File, folder: 'banners' | 'sections'): Promise<string> => {
   const formData = new FormData();
   formData.append('image', file);

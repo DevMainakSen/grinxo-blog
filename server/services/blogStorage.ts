@@ -304,11 +304,13 @@ export function getPublicBlogs(): Blog[] {
 }
 
 export function getBlogById(id: string): Blog | undefined {
-  return getAllBlogs().find((b) => b.id === id);
+  const blog = getAllBlogs().find((b) => b.id === id);
+  return blog ? ensureEngagement(blog) : undefined;
 }
 
 export function getBlogBySlug(slug: string): Blog | undefined {
-  return getAllBlogs().find((b) => b.slug === slug);
+  const blog = getAllBlogs().find((b) => b.slug === slug);
+  return blog ? ensureEngagement(blog) : undefined;
 }
 
 export function getCategories(): { name: string; count: number }[] {
@@ -411,6 +413,76 @@ export function deleteBlog(id: string): boolean {
   const next = blogs.filter((b) => b.id !== id);
   if (next.length === blogs.length) return false;
   return persist(next);
+}
+
+/** Ensure engagement counters exist on a blog, always derived from the stable
+ * public baseline plus the client votes (likedBy/savedBy) already recorded.
+ * The baseline map is the single source of truth, so counts never randomize
+ * or go stale across reloads and server restarts. */
+function ensureEngagement(blog: Blog): Blog {
+  const seededLikes: Record<string, number> = {};
+  const baseline = seededLikes[blog.slug] ?? 0;
+  const likedBy = blog.likedBy ?? [];
+  const savedBy = blog.savedBy ?? [];
+  return {
+    ...blog,
+    likeCount: baseline + likedBy.length,
+    bookmarkCount: Math.floor(baseline / 2) + savedBy.length,
+    likedBy,
+    savedBy,
+  };
+}
+
+// Stable public baseline per blog slug; actual client votes (likedBy/savedBy)
+// stack on top so counts never drift or randomize.
+
+/**
+ * Toggle a client's like on a blog. Counts equal the stable public baseline plus
+ * the number of clients who have voted. Returns the blog with updated counters,
+ * or undefined if the blog is missing.
+ */
+export function toggleLike(id: string, clientId: string): Blog | undefined {
+  const blogs = getAllBlogs();
+  const idx = blogs.findIndex((b) => b.id === id);
+  if (idx === -1) return undefined;
+
+  const base = ensureEngagement(blogs[idx]);
+  const current = new Set(base.likedBy ?? []);
+  if (current.has(clientId)) current.delete(clientId);
+  else current.add(clientId);
+  const likedBy = [...current];
+
+  // Persist only the vote array; the displayed count is derived in
+  // ensureEngagement from this array plus the stable baseline.
+  blogs[idx] = { ...base, likedBy };
+  persist(blogs);
+  return ensureEngagement(blogs[idx]);
+}
+
+/**
+ * Toggle a client's bookmark on a blog. Returns the updated blog, or undefined if missing.
+ */
+export function toggleBookmark(id: string, clientId: string): Blog | undefined {
+  const blogs = getAllBlogs();
+  const idx = blogs.findIndex((b) => b.id === id);
+  if (idx === -1) return undefined;
+
+  const base = ensureEngagement(blogs[idx]);
+  const current = new Set(base.savedBy ?? []);
+  if (current.has(clientId)) current.delete(clientId);
+  else current.add(clientId);
+  const savedBy = [...current];
+
+  blogs[idx] = { ...base, savedBy };
+  persist(blogs);
+  return ensureEngagement(blogs[idx]);
+}
+
+/** Published blogs that the given client has bookmarked. */
+export function getSavedBlogs(clientId: string): Blog[] {
+  return getAllBlogs().filter(
+    (b) => b.status === 'published' && (b.savedBy ?? []).includes(clientId)
+  );
 }
 
 function estimateReadTime(input: BlogInput): number {

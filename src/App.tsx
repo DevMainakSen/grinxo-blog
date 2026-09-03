@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import BlogHome from './pages/BlogHome';
 import BlogArticle from './pages/BlogArticle';
+import SavedArticles from './pages/SavedArticles';
 import BlogDashboard from './pages/admin/BlogDashboard';
 import CreateBlog from './pages/admin/CreateBlog';
 import EditBlog from './pages/admin/EditBlog';
@@ -14,6 +15,7 @@ function App() {
       {/* Redirect root to /blog */}
       <Route path="/" element={<Navigate to="/blog" replace />} />
       <Route path="/blog" element={<BlogHome />} />
+      <Route path="/blog/saved" element={<SavedArticles />} />
       <Route path="/blog/:slug" element={<BlogArticle />} />
 
       {/* Admin panel */}

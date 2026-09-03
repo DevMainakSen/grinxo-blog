@@ -29,6 +29,12 @@ export interface Blog {
   /** Intended publication instant (ISO). Set while the blog is scheduled. */
   scheduledAt?: string;
   sections?: BlogSection[];
+  /** Aggregated engagement counters (server-persisted). */
+  likeCount?: number;
+  bookmarkCount?: number;
+  /** Client IDs that liked / saved this blog (used to derive local state). */
+  likedBy?: string[];
+  savedBy?: string[];
 }
 
 export type BlogCategory = {

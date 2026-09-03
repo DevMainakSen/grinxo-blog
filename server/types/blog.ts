@@ -26,6 +26,12 @@ export interface Blog {
   /** Intended publication instant (ISO). Set while the blog is scheduled. */
   scheduledAt?: string;
   sections: BlogSection[];
+  /** Aggregated engagement counters (server-persisted). */
+  likeCount?: number;
+  bookmarkCount?: number;
+  /** Client IDs that liked / saved this blog (server-persisted). Defaults to []. */
+  likedBy?: string[];
+  savedBy?: string[];
 }
 
 export type BlogStatus = 'draft' | 'scheduled' | 'published';
