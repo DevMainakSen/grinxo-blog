@@ -422,7 +422,7 @@ export const blogs: Blog[] = [
     excerpt:
       "Every child deserves to feel like royalty on their birthday. Here's how to create a princess party that's magical, inclusive, and genuinely unforgettable — from the castle cake to the royal games.",
     featuredImage:
-      'https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=1200&q=80',
+      'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=1200&q=80',
     author: 'Priya Sharma',
     authorAvatar: 'https://i.pravatar.cc/80?img=47',
     publishedAt: '2026-06-20',
@@ -533,7 +533,7 @@ export const blogs: Blog[] = [
     excerpt:
       "Unicorn parties are pure joy — pastel colours, glitter, rainbows, and magic at every turn. Here's your complete guide to creating the most enchanting unicorn birthday celebration imaginable.",
     featuredImage:
-      'https://images.unsplash.com/photo-1578357078586-491adf1aa5ba?w=1200&q=80',
+      'https://images.unsplash.com/photo-1514517521153-1be72277b32f?w=1200&q=80',
     author: 'Riya Kapoor',
     authorAvatar: 'https://i.pravatar.cc/80?img=25',
     publishedAt: '2026-06-08',

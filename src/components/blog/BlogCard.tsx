@@ -19,7 +19,7 @@ export default function BlogCard({ blog, variant = 'default' }: BlogCardProps) {
       >
         <div className="blog-card__image-wrapper">
           <img
-            src={blog.featuredImage}
+            src={blog.thumbnail || blog.featuredImage}
             alt={blog.title}
             className="blog-card__image"
             loading="lazy"
