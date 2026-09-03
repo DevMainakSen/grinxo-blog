@@ -4,7 +4,7 @@ import Footer from '../components/blog/Footer';
 import BlogCarousel from '../components/blog/BlogCarousel';
 import BlogList from '../components/blog/BlogList';
 import TrendingCard from '../components/blog/TrendingCard';
-import CategorySidebar from '../components/blog/CategorySidebar';
+import TopicFilterBar from '../components/blog/TopicFilterBar';
 import NewsletterBanner from '../components/blog/NewsletterBanner';
 import {
   getBlogs,
@@ -24,6 +24,7 @@ interface HomeData {
 export default function BlogHome() {
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState(false);
+  const [activeTopic, setActiveTopic] = useState('All');
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +83,14 @@ export default function BlogHome() {
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 
+  // Filter stories by the active topic pill; "All" shows everything
+  const filteredStories =
+    activeTopic === 'All'
+      ? latestStories
+      : latestStories.filter(
+          (blog) => blog.category.toLowerCase() === activeTopic.toLowerCase()
+        );
+
   return (
     <div className="page-wrapper">
       <Header />
@@ -111,21 +120,21 @@ export default function BlogHome() {
           </section>
         )}
 
-        {/* Main content: latest stories + sidebar */}
+        {/* Main content: latest stories with topic filter */}
         <section id="latest" className="content-section">
-          <div className="container content-layout">
-            {/* Latest stories */}
-            <div className="content-main">
-              <div className="section-header">
-                <h2 className="section-title">Latest Stories</h2>
-              </div>
-              <BlogList blogs={latestStories} />
+          <div className="container">
+            <div className="section-header">
+              <h2 className="section-title">Latest Stories</h2>
             </div>
 
-            {/* Sidebar */}
-            <aside className="content-sidebar" id="topics">
-              <CategorySidebar categories={categories} />
-            </aside>
+            <TopicFilterBar
+              categories={categories}
+              totalCount={allBlogs.length}
+              activeTopic={activeTopic}
+              onTopicChange={setActiveTopic}
+            />
+
+            <BlogList blogs={filteredStories} />
           </div>
         </section>
 
