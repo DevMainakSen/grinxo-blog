@@ -1237,7 +1237,7 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 }
 
 /* Article body */
-.article-body { padding: 3rem 0 2rem; }
+.article-body { padding-top: 3rem; padding-bottom: 2rem; }
 
 .article-layout {
   display: grid;
