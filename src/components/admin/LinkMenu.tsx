@@ -2,12 +2,14 @@ import { useState } from 'react';
 import type { Blog } from '../../types/blog';
 import BlogSelector from './BlogSelector';
 
+export type LinkRel = 'follow' | 'nofollow' | 'sponsored' | 'ugc';
+
 interface LinkMenuProps {
   open: boolean;
   hasSelection: boolean;
   initialText: string;
   onClose: () => void;
-  onInsert: (href: string, text?: string) => void;
+  onInsert: (href: string, text?: string, rel?: LinkRel) => void;
 }
 
 type Step =
@@ -17,14 +19,11 @@ type Step =
   | 'blog'
   | 'blog-text';
 
-interface WebsiteForm {
-  text: string;
-  url: string;
-}
-
 interface ExternalForm {
   text: string;
   url: string;
+  rel: LinkRel;
+  newTab: boolean;
 }
 
 // The path prefix for this blog's public article slugs.
@@ -46,8 +45,8 @@ function safeHttpUrl(value: string): string | null {
 
 export default function LinkMenu({ open, hasSelection, initialText, onClose, onInsert }: LinkMenuProps) {
   const [step, setStep] = useState<Step>('choose');
-  const [website, setWebsite] = useState<WebsiteForm>({ text: initialText, url: '' });
-  const [external, setExternal] = useState<ExternalForm>({ text: initialText, url: '' });
+  const [website, setWebsite] = useState<{ text: string; url: string }>({ text: initialText, url: '' });
+  const [external, setExternal] = useState<ExternalForm>({ text: initialText, url: '', rel: 'follow', newTab: true });
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [blogText, setBlogText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +57,8 @@ export default function LinkMenu({ open, hasSelection, initialText, onClose, onI
     onClose();
   }
 
-  function handleInsert(href: string, text: string) {
-    onInsert(href, text.length > 0 ? text : undefined);
+  function handleInsert(href: string, text: string, rel?: LinkRel) {
+    onInsert(href, text.length > 0 ? text : undefined, rel);
     close();
   }
 
@@ -102,7 +101,7 @@ export default function LinkMenu({ open, hasSelection, initialText, onClose, onI
         setError('Enter a valid http:// or https:// URL.');
         return;
       }
-      handleInsert(href, website.text);
+      handleInsert(href, website.text, 'follow');
     };
     return (
       <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -156,7 +155,7 @@ export default function LinkMenu({ open, hasSelection, initialText, onClose, onI
         setError('Enter a valid http:// or https:// URL.');
         return;
       }
-      handleInsert(href, external.text);
+      handleInsert(href, external.text, external.rel);
     };
     return (
       <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -188,6 +187,35 @@ export default function LinkMenu({ open, hasSelection, initialText, onClose, onI
               onKeyDown={(e) => { if (e.key === 'Enter') insertExternal(); }}
               autoFocus
             />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label className="field__label">Link relationship</label>
+              <div className="field__hint">Determines the rel attribute.</div>
+              <select
+                className="field__input"
+                value={external.rel}
+                onChange={(e) => setExternal((s) => ({ ...s, rel: e.target.value as LinkRel }))}
+                aria-label="Link relationship"
+              >
+                <option value="follow">Follow</option>
+                <option value="nofollow">No follow</option>
+                <option value="sponsored">Sponsored</option>
+                <option value="ugc">UGC</option>
+              </select>
+            </div>
+            <div className="field">
+              <label className="field__label">Open in new tab?</label>
+              <div className="field__hint">Recommended for external links.</div>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={external.newTab}
+                  onChange={(e) => setExternal((s) => ({ ...s, newTab: e.target.checked }))}
+                />
+                <span>Open in new tab</span>
+              </label>
+            </div>
           </div>
           {error && <p className="field__hint field__hint--error">{error}</p>}
           <div className="modal__actions">

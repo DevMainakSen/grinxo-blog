@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import * as store from '../services/blogStorage.ts';
-import type { BlogInput } from '../types/blog.ts';
+import type { BlogInput, BlogSeo } from '../types/blog.ts';
 
 function normalizeInput(body: Record<string, unknown>): BlogInput {
   const has = (k: string) => body[k] !== undefined;
@@ -27,6 +27,26 @@ function normalizeInput(body: Record<string, unknown>): BlogInput {
     if (out.status !== 'scheduled') out.scheduledAt = undefined;
   }
   if (has('scheduledAt')) out.scheduledAt = String(body.scheduledAt);
+
+  // SEO metadata
+  if (has('seo') && body.seo && typeof body.seo === 'object') {
+    const raw = body.seo as Record<string, unknown>;
+    const seo: BlogSeo = {};
+    if (raw.seoTitle !== undefined) seo.seoTitle = String(raw.seoTitle);
+    if (raw.metaDescription !== undefined) seo.metaDescription = String(raw.metaDescription);
+    if (raw.focusKeyword !== undefined) seo.focusKeyword = String(raw.focusKeyword);
+    if (Array.isArray(raw.secondaryKeywords)) {
+      seo.secondaryKeywords = (raw.secondaryKeywords as string[]).map(String).filter(Boolean);
+    }
+    if (raw.canonicalUrl !== undefined) seo.canonicalUrl = String(raw.canonicalUrl);
+    if (raw.ogTitle !== undefined) seo.ogTitle = String(raw.ogTitle);
+    if (raw.ogDescription !== undefined) seo.ogDescription = String(raw.ogDescription);
+    if (raw.ogImage !== undefined) seo.ogImage = String(raw.ogImage);
+    if (raw.robotsIndex !== undefined) seo.robotsIndex = Boolean(raw.robotsIndex);
+    if (raw.robotsFollow !== undefined) seo.robotsFollow = Boolean(raw.robotsFollow);
+    out.seo = seo;
+  }
+
   return out;
 }
 

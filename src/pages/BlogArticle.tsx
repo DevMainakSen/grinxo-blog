@@ -1,14 +1,25 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import Header from '../components/blog/Header';
 import Footer from '../components/blog/Footer';
-import BlogMeta from '../components/blog/BlogMeta';
+import BlogArticleView from '../components/blog/BlogArticleView';
 import BlogActions from '../components/blog/BlogActions';
 import RelatedBlogs from '../components/blog/RelatedBlogs';
 import BlogNotFound from '../components/blog/BlogNotFound';
 import NewsletterBanner from '../components/blog/NewsletterBanner';
 import { getBlogBySlug, getRelatedBlogs } from '../data/blogService';
 import type { Blog } from '../types/blog';
+import {
+  getSiteBaseUrl,
+  resolveCanonicalUrl,
+  resolveMetaDescription,
+  resolveOgDescription,
+  resolveOgImage,
+  resolveOgTitle,
+  resolveRobots,
+  resolveSeoTitle,
+} from '../utils/seo';
 
 type ArticleState =
   | { status: 'loading'; blog?: never }
@@ -90,100 +101,63 @@ function ArticleContent({ blog }: { blog: Blog }) {
     };
   }, [blog]);
 
+  const baseUrl = getSiteBaseUrl();
+  const canonical = resolveCanonicalUrl(blog);
+  const ogImage = resolveOgImage(blog);
+
+  // Structured data: Article schema.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: resolveSeoTitle(blog),
+    description: resolveMetaDescription(blog),
+    image: ogImage || undefined,
+    datePublished: blog.publishedAt || undefined,
+    dateModified: blog.publishedAt || undefined,
+    author: { '@type': 'Person', name: blog.author },
+    publisher: { '@type': 'Organization', name: 'GrinXO' },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  };
+
+  // Structured data: BreadcrumbList reflecting the visible navigation.
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Blog', item: `${baseUrl}/blog` },
+      { '@type': 'ListItem', position: 2, name: blog.title, item: canonical },
+    ],
+  };
+
   return (
     <div className="page-wrapper">
+      <Helmet>
+        <title>{`${resolveSeoTitle(blog)} | GrinXO`}</title>
+        <meta name="description" content={resolveMetaDescription(blog)} />
+        <link rel="canonical" href={canonical} />
+        <meta name="robots" content={resolveRobots(blog)} />
+        <meta name="author" content={blog.author} />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="article" />
+        <meta property="og:title" content={resolveOgTitle(blog)} />
+        <meta property="og:description" content={resolveOgDescription(blog)} />
+        <meta property="og:url" content={canonical} />
+        {ogImage && <meta property="og:image" content={ogImage} />}
+        <meta property="og:site_name" content="GrinXO" />
+
+        {/* Structured data */}
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
+      </Helmet>
+
       <Header />
 
       <main id="main-content">
-        {/* Article Hero */}
-        <div className="article-hero">
-          <img
-            src={blog.featuredImage}
-            alt={blog.title}
-            className="article-hero__image"
-          />
-          <div className="article-hero__overlay" aria-hidden="true" />
-          <div className="article-hero__content container">
-            <nav aria-label="Breadcrumb" className="article-breadcrumb">
-              <Link to="/blog" className="article-breadcrumb__link">
-                Blog
-              </Link>
-              <span className="article-breadcrumb__sep" aria-hidden="true">
-                /
-              </span>
-              <span className="article-breadcrumb__current">{blog.category}</span>
-            </nav>
-            <span className="article-hero__category">{blog.category}</span>
-            <h1 className="article-hero__title">{blog.title}</h1>
-            <BlogMeta blog={blog} variant="hero" />
-            <BlogActions blog={blog} variant="hero" />
-          </div>
-        </div>
-
-        {/* Article Body */}
-        <div className="article-body container">
-          <div className="article-layout">
-            {/* Main content */}
-            <article className="article-content">
-              <p className="article-excerpt">{blog.excerpt}</p>
-
-              {/* Rich content — rendered from trusted local seed data */}
-              <div
-                className="article-prose"
-                dangerouslySetInnerHTML={{ __html: blog.content }}
-              />
-
-              {/* Tags */}
-              {blog.tags.length > 0 && (
-                <div className="article-tags">
-                  <span className="article-tags__label">Tags:</span>
-                  {blog.tags.map((tag) => (
-                    <span key={tag} className="article-tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Back link */}
-              <div className="article-back">
-                <Link to="/blog" className="article-back__link">
-                  ← Back to all articles
-                </Link>
-              </div>
-            </article>
-
-            {/* Sticky sidebar */}
-            <aside className="article-sidebar">
-              <div className="article-sidebar__card">
-                <h3 className="article-sidebar__heading">About the Author</h3>
-                {blog.authorAvatar && (
-                  <img
-                    src={blog.authorAvatar}
-                    alt={blog.author}
-                    className="article-sidebar__avatar"
-                    width={56}
-                    height={56}
-                  />
-                )}
-                <p className="article-sidebar__author">{blog.author}</p>
-                <p className="article-sidebar__author-bio">
-                  Party planning expert and contributor at GrinXO.
-                </p>
-              </div>
-
-              <div className="article-sidebar__card">
-                <h3 className="article-sidebar__heading">Article Details</h3>
-                <dl className="article-sidebar__details">
-                  <dt>Category</dt>
-                  <dd>{blog.category}</dd>
-                  <dt>Read Time</dt>
-                  <dd>{blog.readTime} min read</dd>
-                </dl>
-              </div>
-            </aside>
-          </div>
-        </div>
+        <BlogArticleView
+          blog={blog}
+          actions={<BlogActions blog={blog} variant="hero" />}
+        />
 
         {/* Related blogs */}
         {related.length > 0 && (

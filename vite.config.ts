@@ -12,6 +12,8 @@ export default defineConfig({
     proxy: {
       '/api': { target: backend, changeOrigin: true },
       '/uploads': { target: backend, changeOrigin: true },
+      '/robots.txt': { target: backend, changeOrigin: true },
+      '/sitemap.xml': { target: backend, changeOrigin: true },
     },
   },
 })

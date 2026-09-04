@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
-import type { Blog, BlogSection } from '../../types/blog';
+import type { Blog, BlogSection, BlogSeo } from '../../types/blog';
 import ImagePicker from './ImagePicker';
 import SectionBuilder from './SectionBuilder';
 import SchedulePublishModal, {
   type ScheduleValue,
 } from './SchedulePublishModal';
+import SeoSection from './SeoSection';
+import PreviewModal from './PreviewModal';
+import { buildContentHtml, blogHasSectionContent } from '../../utils/articleContent';
 import { formatScheduledAt, toDateInputValue } from '../../utils/date';
 import { slugify } from '../../utils/slug';
 
@@ -40,6 +43,7 @@ export default function BlogEditor({
   );
   const [slugTouched, setSlugTouched] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [schedError, setSchedError] = useState('');
 
   const isEdit = Boolean(initial);
@@ -58,6 +62,21 @@ export default function BlogEditor({
     () => defaultCategories(),
     []
   );
+
+  /**
+   * Snapshot of the current editor state for previewing. The article body is
+   * derived from the live (unsaved) sections so Preview always reflects what the
+   * admin is about to publish. Nothing here is persisted.
+   */
+  const previewDraft = useMemo(() => {
+    const sections = draft.sections ?? [];
+    const content = blogHasSectionContent(sections)
+      ? buildContentHtml(sections)
+      : draft.content;
+    return { ...draft, content };
+    // Rebuild whenever the editor content changes so preview reflects the latest
+    // (possibly unsaved) state.
+  }, [draft]);
 
   function toAction(action: EditorAction): Blog {
     // Save actions persist edits. A scheduled blog that is merely saved keeps
@@ -294,10 +313,24 @@ export default function BlogEditor({
         onChange={(sections) => set('sections', sections)}
       />
 
+      {/* SEO Settings */}
+      <SeoSection
+        blog={draft}
+        onChange={(seo: BlogSeo) => set('seo', seo)}
+      />
+
       {submitError && <div className="alert alert--error">{submitError}</div>}
 
       <div className="editor-actions">
         <div className="editor-actions__group">
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => setShowPreview(true)}
+            disabled={saving}
+          >
+            Preview
+          </button>
           <button
             type="button"
             className="btn btn--ghost"
@@ -324,6 +357,10 @@ export default function BlogEditor({
           </button>
         </div>
       </div>
+
+      {showPreview && (
+        <PreviewModal blog={previewDraft} onClose={() => setShowPreview(false)} />
+      )}
 
       {showSchedule && (
         <SchedulePublishModal
@@ -353,6 +390,7 @@ function buildInitial(initial?: Blog, presets?: BlogEditorProps['presets']): Blo
       publishedAt: initial.publishedAt ?? new Date().toISOString(),
       featured: initial.featured ?? false,
       tags: initial.tags ?? [],
+      seo: initial.seo ?? {},
     };
   }
   return {
@@ -370,6 +408,7 @@ function buildInitial(initial?: Blog, presets?: BlogEditorProps['presets']): Blo
     featured: false,
     status: 'draft' as const,
     sections: [blankSection()],
+    seo: {},
   };
 }
 

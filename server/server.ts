@@ -6,7 +6,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import blogsRouter from './routes/blogs.ts';
 import uploadsRouter from './routes/uploads.ts';
-import { initStorage, UPLOADS_DIR } from './services/blogStorage.ts';
+import { initStorage, UPLOADS_DIR, getSitemapEntries, findRedirect } from './services/blogStorage.ts';
 import { startScheduler } from './services/scheduler.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +38,61 @@ app.get('/api/categories', (_req, res) => {
   void import('./services/blogStorage.ts').then((store) =>
     res.json(store.getCategories())
   );
+});
+
+// ── SEO endpoints ────────────────────────────────────────────────────
+
+const SITE_URL = process.env.PUBLIC_SITE_URL || `http://localhost:${PORT}`;
+
+// robots.txt
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /blog',
+    'Disallow: /blog/admin',
+    'Disallow: /api/',
+    'Disallow: /uploads/',
+    '',
+    `Sitemap: ${SITE_URL}/sitemap.xml`,
+    '',
+  ].join('\n'));
+});
+
+// sitemap.xml
+app.get('/sitemap.xml', (_req, res) => {
+  const entries = getSitemapEntries();
+  const urls = entries.map((e) => `  <url>
+    <loc>${SITE_URL}/blog/${e.slug}</loc>
+    <lastmod>${new Date(e.updatedAt || e.publishedAt).toISOString()}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`).join('\n');
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${SITE_URL}/blog</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+${urls}
+</urlset>`;
+
+  res.type('application/xml').send(xml);
+});
+
+// Redirect handler: check if a requested path has a stored redirect.
+app.use((req, res, next) => {
+  // Only check GET requests for HTML pages (not API/uploads/static).
+  if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+    return next();
+  }
+  const target = findRedirect(req.path);
+  if (target) {
+    res.redirect(301, target);
+    return;
+  }
+  next();
 });
 
 // ============================================================

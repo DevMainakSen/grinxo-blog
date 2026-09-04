@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import Header from '../components/blog/Header';
 import Footer from '../components/blog/Footer';
 import BlogCarousel from '../components/blog/BlogCarousel';
@@ -49,6 +50,9 @@ export default function BlogHome() {
   if (error) {
     return (
       <div className="page-wrapper">
+        <Helmet>
+          <title>{'GrinXO Blog'}</title>
+        </Helmet>
         <Header />
         <main id="main-content">
           <div className="container blog-not-found">
@@ -69,6 +73,9 @@ export default function BlogHome() {
   if (!data) {
     return (
       <div className="page-wrapper">
+        <Helmet>
+          <title>{'GrinXO Blog'}</title>
+        </Helmet>
         <Header />
         <main id="main-content"></main>
         <Footer />
@@ -93,6 +100,13 @@ export default function BlogHome() {
 
   return (
     <div className="page-wrapper">
+      <Helmet>
+        <title>{'GrinXO Blog — Effortless Party Planning'}</title>
+        <meta
+          name="description"
+          content="GrinXO Blog — Party planning tips, birthday themes, decoration ideas and more for life's milestones."
+        />
+      </Helmet>
       <Header />
 
       <main id="main-content">

@@ -9,7 +9,7 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import type { Editor } from '@tiptap/react';
 import { FontSize } from './extensions/fontSize';
-import LinkMenu from './LinkMenu';
+import LinkMenu, { type LinkRel } from './LinkMenu';
 
 interface RichTextEditorProps {
   value: string;
@@ -99,8 +99,27 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const [hasSelection, setHasSelection] = useState(false);
   const [initialText, setInitialText] = useState('');
 
-  function handleInsert(href: string, text?: string) {
+  function handleInsert(href: string, text?: string, rel?: LinkRel) {
     if (!editor) return;
+
+    // Build link attributes.
+    let attrs: { href: string; target?: string; rel?: string };
+    if (href.startsWith('/')) {
+      // Internal relative links: keep them relative (follow, same context).
+      attrs = { href };
+    } else {
+      // External links: open in a new secured tab by default.
+      attrs = { href, target: '_blank', rel: 'noopener noreferrer' };
+      if (rel && rel !== 'follow') {
+        const relParts = rel === 'nofollow'
+          ? ['nofollow']
+          : rel === 'sponsored'
+            ? ['nofollow', 'sponsored']
+            : ['nofollow', 'ugc'];
+        attrs = { href, target: '_blank', rel: ['noopener', 'noreferrer', ...relParts].join(' ') };
+      }
+    }
+
     const range = pendingRange.current;
     pendingRange.current = null;
 
@@ -111,12 +130,10 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         .chain()
         .focus()
         .setTextSelection({ from: range.from, to: range.to })
-        .setLink({ href })
+        .setLink(attrs)
         .run();
     } else if (text && text.length > 0) {
-      // No text selected: insert a fresh line? no — insert the display text at
-      // the last cursor position, then select the inserted range so the link
-      // wraps it, and finally collapse the selection after the linked text.
+      // No text selected: insert the display text, then wrap it in the link.
       const anchor = range ? range.from : editor.state.selection.from;
       editor.chain().focus().insertContent([{ type: 'text', text }]).run();
       const from = anchor;
@@ -125,11 +142,11 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         .chain()
         .focus()
         .setTextSelection({ from, to })
-        .setLink({ href })
+        .setLink(attrs)
         .run();
       editor.commands.setTextSelection({ from: to, to });
     } else {
-      editor.chain().focus().setLink({ href }).run();
+      editor.chain().focus().setLink(attrs).run();
     }
     editor.commands.focus();
   }

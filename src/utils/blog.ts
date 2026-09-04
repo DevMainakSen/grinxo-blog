@@ -5,6 +5,7 @@ import type { Blog } from '../types/blog';
  * - `sections` always an array
  * - `status` always defined
  * - `featuredImage`/`thumbnail` kept in sync
+ * - `seo` always an object
  */
 export function normalizeBlog(blog: Blog): Blog {
   const featuredImage = blog.featuredImage || blog.thumbnail || '';
@@ -14,6 +15,7 @@ export function normalizeBlog(blog: Blog): Blog {
     thumbnail: featuredImage,
     status: blog.status ?? 'draft',
     sections: blog.sections ?? [],
+    seo: blog.seo ?? {},
   };
 }
 
@@ -36,5 +38,6 @@ export function toBlogPayload(blog: Blog): Record<string, unknown> {
     status: blog.status,
     scheduledAt: blog.scheduledAt,
     sections: blog.sections ?? [],
+    seo: blog.seo ?? {},
   };
 }

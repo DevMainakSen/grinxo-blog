@@ -35,6 +35,21 @@ export interface Blog {
   /** Client IDs that liked / saved this blog (used to derive local state). */
   likedBy?: string[];
   savedBy?: string[];
+  /** SEO metadata for search engines and social sharing. */
+  seo?: BlogSeo;
+}
+
+export interface BlogSeo {
+  seoTitle?: string;
+  metaDescription?: string;
+  focusKeyword?: string;
+  secondaryKeywords?: string[];
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  robotsIndex?: boolean;
+  robotsFollow?: boolean;
 }
 
 export type BlogCategory = {

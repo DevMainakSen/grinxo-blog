@@ -6,6 +6,19 @@ export interface BlogSection {
   imageCaption?: string;
 }
 
+export interface BlogSeo {
+  seoTitle?: string;
+  metaDescription?: string;
+  focusKeyword?: string;
+  secondaryKeywords?: string[];
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  robotsIndex?: boolean;
+  robotsFollow?: boolean;
+}
+
 export interface Blog {
   id: string;
   title: string;
@@ -32,6 +45,8 @@ export interface Blog {
   /** Client IDs that liked / saved this blog (server-persisted). Defaults to []. */
   likedBy?: string[];
   savedBy?: string[];
+  /** SEO metadata for search engines and social sharing. */
+  seo?: BlogSeo;
 }
 
 export type BlogStatus = 'draft' | 'scheduled' | 'published';
@@ -64,4 +79,6 @@ export interface BlogInput {
   /** Intended publication instant (ISO) — set when scheduling. */
   scheduledAt?: string;
   sections?: BlogSection[];
+  /** SEO metadata. */
+  seo?: BlogSeo;
 }

@@ -1,13 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Blog, BlogInput, BlogSection } from '../types/blog.ts';
+import type { Blog, BlogInput, BlogSection, BlogSeo } from '../types/blog.ts';
+import type { SlugRedirect } from '../types/redirect.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'data');
 const BLOGS_FILE = join(DATA_DIR, 'blogs.json');
 const SEED_FILE = join(DATA_DIR, 'seed.blogs.json');
 const CATEGORIES_FILE = join(DATA_DIR, 'categories.json');
+const REDIRECTS_FILE = join(DATA_DIR, 'redirects.json');
 
 export const UPLOADS_DIR = join(__dirname, '..', 'uploads');
 
@@ -139,6 +141,19 @@ function sanitizeAttrs(tagName: string, rawAttrString: string): string {
       continue;
     }
 
+    if (name === 'rel') {
+      // Preserve semantic rel values (nofollow, sponsored, ugc) for external
+      // links. noopener/noreferrer are re-asserted below for every anchor.
+      const relTokens = decoded.toLowerCase().split(/\s+/).filter(Boolean);
+      const allowedRel = new Set(['nofollow', 'sponsored', 'ugc']);
+      const kept = relTokens.filter((t) => allowedRel.has(t));
+      if (kept.length) {
+        parts.push(`rel="${kept.join(' ')}"`);
+        seen.add('rel');
+      }
+      continue;
+    }
+
     if (name === 'style') {
       parts.push(`style="${escapeHtml(sanitizeCss(decoded))}"`);
       seen.add('style');
@@ -163,11 +178,21 @@ function sanitizeAttrs(tagName: string, rawAttrString: string): string {
     }
   }
 
-  // Force links to open in a new, secured tab.
+  // Force links to open in a new, secured tab. Preserve any semantic rel
+  // (nofollow/sponsored/ugc) captured above, always with noopener noreferrer.
   if (tagName === 'a') {
     if (!seen.has('href')) return ''; // no valid href -> drop the anchor
     parts.push('target="_blank"');
-    parts.push('rel="noopener noreferrer"');
+    const semantic = seen.has('rel')
+      ? parts.filter((p) => p.startsWith('rel=')).join(' ').replace('rel="', '').replace('"', '')
+      : '';
+    // Remove the separately-added rel token (if any) before re-emitting.
+    const merged = ['noopener', 'noreferrer', ...semantic.split(/\s+/).filter(Boolean)];
+    const finalRel = [...new Set(merged)].join(' ');
+    // Replace any earlier rel part.
+    const filtered = parts.filter((p) => !p.startsWith('rel='));
+    filtered.push(`rel="${finalRel}"`);
+    return filtered.length ? ` ${filtered.join(' ')}` : '';
   }
 
   return parts.length ? ` ${parts.join(' ')}` : '';
@@ -243,6 +268,7 @@ function wrapParagraphs(text: string): string {
 }
 
 let cache: Blog[] | null = null;
+let redirectCache: SlugRedirect[] | null = null;
 
 /**
  * Validate a schedule timestamp: must be a parseable ISO instant that lies in
@@ -287,11 +313,16 @@ export function initStorage(): void {
   if (!existsSync(CATEGORIES_FILE)) {
     writeJson(CATEGORIES_FILE, []);
   }
+  if (!existsSync(REDIRECTS_FILE)) {
+    writeJson(REDIRECTS_FILE, []);
+  }
   cache = readFile<Blog[]>(BLOGS_FILE, []);
+  redirectCache = readFile<SlugRedirect[]>(REDIRECTS_FILE, []);
 }
 
 function refreshCache(): void {
   cache = readFile<Blog[]>(BLOGS_FILE, []);
+  redirectCache = readFile<SlugRedirect[]>(REDIRECTS_FILE, []);
 }
 
 export function getAllBlogs(): Blog[] {
@@ -350,6 +381,7 @@ export function createBlog(input: BlogInput): Blog {
     status: input.status ?? 'draft',
     scheduledAt: input.scheduledAt,
     sections,
+    seo: input.seo ?? {},
   };
   const blogs = getAllBlogs();
   blogs.unshift(blog);
@@ -365,12 +397,20 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
   const existing = blogs[idx];
   const sections = input.sections ?? existing.sections;
 
+  // Track slug changes for published blogs to create redirects.
+  if (input.slug && input.slug !== existing.slug && existing.status === 'published') {
+    addRedirect(`/blog/${existing.slug}`, `/blog/${input.slug}`);
+  }
+
   const fullInput: BlogInput = {
     ...existing,
     ...input,
     sections,
     thumbnail: input.thumbnail ?? existing.featuredImage,
   };
+
+  // Merge SEO: preserve existing fields not sent in the update.
+  const mergedSeo: BlogSeo = { ...existing.seo, ...(input.seo ?? {}) };
 
   const updated: Blog = {
     ...existing,
@@ -398,6 +438,7 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
     status: fullInput.status,
     scheduledAt: fullInput.scheduledAt,
     sections,
+    seo: mergedSeo,
   };
   blogs[idx] = updated;
   persist(blogs);
@@ -553,4 +594,79 @@ function persist(blogs: Blog[]): boolean {
 
 export function reloadFromDisk(): void {
   refreshCache();
+}
+
+// ── Redirects ───────────────────────────────────────────────────────
+
+function getRedirects(): SlugRedirect[] {
+  if (redirectCache === null) initStorage();
+  return redirectCache ?? [];
+}
+
+function addRedirect(from: string, to: string): void {
+  const redirects = getRedirects();
+  // Don't duplicate if an identical redirect already exists.
+  if (!redirects.some((r) => r.from === from && r.to === to)) {
+    redirects.push({ from, to, createdAt: new Date().toISOString() });
+    redirectCache = redirects;
+    writeJson(REDIRECTS_FILE, redirects);
+  }
+}
+
+/** Find a redirect for a given path. Returns the target path or null. */
+export function findRedirect(path: string): string | null {
+  const redirects = getRedirects();
+  const match = redirects.find((r) => r.from === path);
+  return match ? match.to : null;
+}
+
+// ── Sitemap ─────────────────────────────────────────────────────────
+
+export interface SitemapEntry {
+  slug: string;
+  publishedAt: string;
+  updatedAt?: string;
+}
+
+/** All published, indexable blogs for the sitemap. */
+export function getSitemapEntries(): SitemapEntry[] {
+  return getPublicBlogs()
+    .filter((b) => b.seo?.robotsIndex !== false)
+    .map((b) => ({
+      slug: b.slug,
+      publishedAt: b.publishedAt,
+      updatedAt: b.publishedAt,
+    }));
+}
+
+// ── SEO helpers ─────────────────────────────────────────────────────
+
+/** Resolve SEO title with fallback: seoTitle → blog.title */
+export function resolveSeoTitle(blog: Blog): string {
+  return blog.seo?.seoTitle || blog.title;
+}
+
+/** Resolve meta description with fallback: metaDescription → excerpt */
+export function resolveMetaDescription(blog: Blog): string {
+  return blog.seo?.metaDescription || blog.excerpt || '';
+}
+
+/** Resolve OG title with fallback: ogTitle → seoTitle → blog.title */
+export function resolveOgTitle(blog: Blog): string {
+  return blog.seo?.ogTitle || blog.seo?.seoTitle || blog.title;
+}
+
+/** Resolve OG description with fallback: ogDescription → metaDescription → excerpt */
+export function resolveOgDescription(blog: Blog): string {
+  return blog.seo?.ogDescription || blog.seo?.metaDescription || blog.excerpt || '';
+}
+
+/** Resolve OG image with fallback: ogImage → featuredImage */
+export function resolveOgImage(blog: Blog): string {
+  return blog.seo?.ogImage || blog.featuredImage || '';
+}
+
+/** Resolve canonical URL with fallback: canonicalUrl → generated */
+export function resolveCanonicalUrl(blog: Blog, baseUrl: string): string {
+  return blog.seo?.canonicalUrl || `${baseUrl}/blog/${blog.slug}`;
 }

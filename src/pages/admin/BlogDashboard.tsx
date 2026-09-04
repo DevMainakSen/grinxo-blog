@@ -22,6 +22,15 @@ function statusTime(blog: Blog): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+/** Lightweight SEO status from configured metadata (not a ranking score). */
+function seoStatus(blog: Blog): { optimized: boolean; missing: string[] } {
+  const missing: string[] = [];
+  if (!blog.seo?.seoTitle) missing.push('SEO title');
+  if (!blog.seo?.metaDescription) missing.push('Meta description');
+  if (!blog.seo?.focusKeyword) missing.push('Focus keyword');
+  return { optimized: missing.length === 0, missing };
+}
+
 export default function BlogDashboard() {
   const location = useLocation();
   const [blogs, setBlogs] = useState<Blog[]>([]);
@@ -203,6 +212,7 @@ export default function BlogDashboard() {
                   <th scope="col">Blog Title</th>
                   <th scope="col">Category</th>
                   <th scope="col">Status</th>
+                  <th scope="col">SEO</th>
                   <th scope="col">Date</th>
                   <th scope="col" className="blog-table__col-actions">Actions</th>
                 </tr>
@@ -252,6 +262,22 @@ export default function BlogDashboard() {
                             ? 'Scheduled'
                             : 'Draft'}
                       </button>
+                    </td>
+                    <td>
+                      <span className="seo-status">
+                        {seoStatus(blog).optimized ? (
+                          <span className="seo-status__ok" title="Recommended SEO metadata configured">
+                            ✓ Optimized
+                          </span>
+                        ) : (
+                          <span
+                            className="seo-status__warn"
+                            title={`Missing: ${seoStatus(blog).missing.join(', ')}`}
+                          >
+                            ⚠ Needs attention
+                          </span>
+                        )}
+                      </span>
                     </td>
                     <td className="blog-table__date">
                       {blog.status === 'scheduled'
