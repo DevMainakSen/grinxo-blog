@@ -1,4 +1,5 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ADMIN_BASE_PATH } from '../../services/config';
 
@@ -12,6 +13,7 @@ const NEW_PATH = `${ADMIN_BASE_PATH}/blogs/new`;
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const inDashboard = location.pathname === BLOGS_PATH;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="admin-shell">
@@ -22,6 +24,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <span className="admin-header__title">GrinXO Blog Admin</span>
           </Link>
 
+          {/* Desktop nav */}
           <nav className="admin-header__nav" aria-label="Admin navigation">
             <NavLink
               to={BLOGS_PATH}
@@ -49,7 +52,65 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               ← Dashboard
             </Link>
           )}
+
+          {/* Mobile menu toggle */}
+          <button
+            type="button"
+            className="admin-header__toggle"
+            aria-label={menuOpen ? 'Close admin menu' : 'Open admin menu'}
+            aria-expanded={menuOpen}
+            aria-controls="admin-mobile-menu"
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            <span className="hamburger-bar" />
+            <span className="hamburger-bar" />
+            <span className="hamburger-bar" />
+          </button>
         </div>
+
+        {/* Mobile nav drawer */}
+        {menuOpen && (
+          <nav
+            id="admin-mobile-menu"
+            className="admin-nav-mobile"
+            aria-label="Admin navigation (mobile)"
+          >
+            <NavLink
+              to={BLOGS_PATH}
+              className={({ isActive }) =>
+                `admin-nav-mobile__link${isActive ? ' is-active' : ''}`
+              }
+              onClick={() => setMenuOpen(false)}
+            >
+              Blogs
+            </NavLink>
+            <NavLink
+              to={NEW_PATH}
+              className="admin-nav-mobile__link"
+              onClick={() => setMenuOpen(false)}
+            >
+              New Blog
+            </NavLink>
+            <a
+              href="/blog"
+              className="admin-nav-mobile__link"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMenuOpen(false)}
+            >
+              View Public Site ↗
+            </a>
+            {!inDashboard && (
+              <Link
+                to={BLOGS_PATH}
+                className="admin-nav-mobile__link"
+                onClick={() => setMenuOpen(false)}
+              >
+                ← Dashboard
+              </Link>
+            )}
+          </nav>
+        )}
       </header>
 
       <main className="admin-main">

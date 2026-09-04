@@ -11,6 +11,8 @@ export default function BlogCarousel({ blogs }: BlogCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   const goTo = useCallback(
     (index: number) => {
@@ -31,6 +33,30 @@ export default function BlogCarousel({ blogs }: BlogCarouselProps) {
     };
   }, [goNext, isPaused, blogs.length]);
 
+  // Swipe navigation (primary on touch devices where the arrows are hidden).
+  function handleTouchStart(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartX.current;
+    const deltaY = touch.clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    // Require a clear horizontal swipe (dominant over vertical scroll, and long
+    // enough to be intentional) before navigating.
+    const threshold = 50;
+    if (Math.abs(deltaX) < threshold || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+    if (deltaX < 0) goNext();
+    else goPrev();
+  }
+
   if (blogs.length === 0) return null;
 
   return (
@@ -39,6 +65,8 @@ export default function BlogCarousel({ blogs }: BlogCarouselProps) {
       aria-label="Featured blog posts"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={blogs.length > 1 ? handleTouchStart : undefined}
+      onTouchEnd={blogs.length > 1 ? handleTouchEnd : undefined}
     >
       <div className="carousel-track">
         {blogs.map((blog, index) => (

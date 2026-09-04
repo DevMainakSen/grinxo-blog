@@ -87,6 +87,7 @@ export default function Header() {
           className="header-menu-toggle"
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={menuOpen}
+          aria-controls="mobile-nav"
           onClick={() => setMenuOpen((prev) => !prev)}
         >
           <span className="hamburger-bar" />
@@ -97,7 +98,7 @@ export default function Header() {
 
       {/* Mobile Nav */}
         {menuOpen && (
-        <nav className="header-nav-mobile" aria-label="Mobile navigation">
+        <nav id="mobile-nav" className="header-nav-mobile" aria-label="Mobile navigation">
           <Link
             to="/blog"
             className="nav-link-mobile"
