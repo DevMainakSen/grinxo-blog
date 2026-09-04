@@ -922,11 +922,8 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 
 /* Share popover */
 .share-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 40;
-  min-width: 200px;
+  position: fixed;
+  z-index: 1000;
   padding: 0.4rem;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
@@ -972,23 +969,15 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 
 .share-popover__icon {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #fff;
-  border-radius: 50%;
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: #fff;
 }
 
-.share-popover__icon--facebook { background: #1877f2; }
-.share-popover__icon--x { background: #111; color: #fff; }
-.share-popover__icon--linkedin { background: #0a66c2; }
-
-@media (max-width: 600px) {
-  .share-popover { right: auto; left: 0; }
-}
+.share-popover__icon--whatsapp { color: #25d366; }
+.share-popover__icon--instagram { color: #e1306c; }
+.share-popover__icon--facebook { color: #1877f2; }
 
 /* =========================================================
    CATEGORY SIDEBAR  — "Explore Topics"
