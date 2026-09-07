@@ -17,6 +17,7 @@ export const blogs: Blog[] = [
     tags: ['themes', 'kids', 'birthday', 'party ideas'],
     featured: true,
     trending: true,
+    isActive: true,
     content: `
 <p>Choosing the right theme is the single most exciting part of planning a kids' birthday party. The theme sets the tone for everything — decorations, cake, games, and even the invitation card. When you pick a theme your child genuinely loves, the entire party feels personal, magical, and memorable.</p>
 
@@ -77,6 +78,7 @@ export const blogs: Blog[] = [
     tags: ['first birthday', 'milestone', 'baby', 'celebration'],
     featured: true,
     trending: true,
+    isActive: true,
     content: `
 <p>The first birthday is not just a party — it's a milestone. It's the celebration of your child completing one whole year of life, and it deserves to be both beautiful and memorable. The good news? You don't need to go overboard. Even simple, thoughtful touches make the day feel extraordinary.</p>
 
@@ -125,6 +127,7 @@ export const blogs: Blog[] = [
     tags: ['decorations', 'party decor', 'balloons', 'DIY'],
     featured: true,
     trending: false,
+    isActive: true,
     content: `
 <p>Great decorations don't require a huge budget — they require creativity and attention to detail. The right decorations create a sense of occasion the moment guests walk through the door, and they double as the best backdrop for party photos.</p>
 
@@ -174,6 +177,7 @@ export const blogs: Blog[] = [
     tags: ['games', 'activities', 'kids', 'entertainment'],
     featured: false,
     trending: true,
+    isActive: true,
     content: `
 <p>Games are the heartbeat of any children's birthday party. They keep kids engaged, burn off energy, create laughter, and give even the shyest child a way to join in. The best games are simple to explain, quick to play, and end with every child feeling like a winner.</p>
 
@@ -242,6 +246,7 @@ export const blogs: Blog[] = [
     tags: ['return gifts', 'favours', 'goody bags', 'party'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>Return gifts are the final impression your party leaves on every guest. The classic plastic-toy goodie bag has had its day — today's parents appreciate gifts that are thoughtful, useful, and age-appropriate. Here are ideas that genuinely stand out.</p>
 
@@ -302,6 +307,7 @@ export const blogs: Blog[] = [
     tags: ['planning', 'checklist', 'stress-free', 'tips'],
     featured: true,
     trending: false,
+    isActive: true,
     content: `
 <p>Every parent wants their child's birthday to be magical. But somewhere between choosing a theme and managing the guest list and organising the food and sourcing the decorations, the planning process can start to feel overwhelming. It doesn't have to. Here's a step-by-step approach that keeps everything manageable.</p>
 
@@ -375,6 +381,7 @@ export const blogs: Blog[] = [
     tags: ['dinosaur', 'themes', 'party ideas', 'kids'],
     featured: false,
     trending: true,
+    isActive: true,
     content: `
 <p>Few things excite a young child as much as dinosaurs. The combination of enormous size, wild shapes, and the mystery of extinction makes them endlessly fascinating. A dinosaur birthday party taps into that fascination and transforms it into an immersive, unforgettable experience.</p>
 
@@ -431,6 +438,7 @@ export const blogs: Blog[] = [
     tags: ['princess', 'themes', 'girls', 'royal party'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>The princess theme has endured for decades because it speaks to something universal: the desire to feel special, celebrated, and magical. A well-executed princess party doesn't have to be pink and generic — it can be rich, personalised, and genuinely enchanting.</p>
 
@@ -486,6 +494,7 @@ export const blogs: Blog[] = [
     tags: ['superhero', 'themes', 'action', 'kids party'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>Superhero parties work for boys, girls, toddlers, and tweens alike. The concept is universally beloved: every child secretly believes they have superpowers. A superhero party gives them permission to be exactly that for one afternoon.</p>
 
@@ -542,6 +551,7 @@ export const blogs: Blog[] = [
     tags: ['unicorn', 'themes', 'glitter', 'rainbow'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>The unicorn theme has captured children's imaginations because it represents pure, unapologetic magic. There are no rules in a unicorn world — only sparkle, colour, and the freedom to be exactly who you are. That energy makes for an extraordinary birthday party.</p>
 
@@ -598,6 +608,7 @@ export const blogs: Blog[] = [
     tags: ['budget', 'affordable', 'planning', 'tips'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>The most memorable children's birthday parties aren't the most expensive ones. They're the most thoughtful. Here's how to create a celebration that looks and feels premium while keeping costs firmly under control.</p>
 
@@ -654,6 +665,7 @@ export const blogs: Blog[] = [
     tags: ['outdoor', 'garden party', 'summer', 'fresh air'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>There is something irreplaceable about celebrating outdoors. The space, the light, the air — an outdoor children's party has an energy and openness that no indoor venue can fully replicate. And with the right planning, outdoor parties are not just beautiful but genuinely easy to manage.</p>
 
@@ -719,6 +731,7 @@ export const blogs: Blog[] = [
     tags: ['food', 'catering', 'party snacks', 'birthday cake'],
     featured: false,
     trending: false,
+    isActive: true,
     content: `
 <p>Birthday party food has come a long way from cheese-and-pineapple sticks and a supermarket birthday cake. Today's party tables are edible art installations — themed, colourful, and designed to delight both children and the adults inevitably photographing everything. Here are ideas that strike the right balance.</p>
 
@@ -775,6 +788,7 @@ export const blogs: Blog[] = [
     tags: ['Indian', 'traditions', 'culture', 'family'],
     featured: true,
     trending: false,
+    isActive: true,
     content: `
 <p>An Indian birthday celebration is rarely just a party. It's a gathering of generations, a moment of gratitude, and a joyful expression of family and community. Whether you're planning a traditional celebration or a modern hybrid party, understanding and honouring Indian birthday traditions adds a depth and warmth that no external trend can replicate.</p>
 
@@ -824,6 +838,7 @@ export const blogs: Blog[] = [
     tags: ['photography', 'memories', 'photos', 'tips'],
     featured: false,
     trending: true,
+    isActive: true,
     content: `
 <p>Birthday photos are the heirlooms of childhood. Long after the cake is eaten and the decorations are packed away, the photographs remain — the only tangible evidence that this magical day happened. Getting them right matters. Here's how.</p>
 

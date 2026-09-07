@@ -123,9 +123,17 @@ export default function EditBlog() {
       <div className="page-heading">
         <div className="page-heading__row">
           <h1 className="page-heading__title">Edit Blog</h1>
-          <Link to={`/blog/${blog.slug}`} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
-            View public →
-          </Link>
+          {blog.status === 'published' && blog.isActive ? (
+            <Link to={`/blog/${blog.slug}`} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
+              View public →
+            </Link>
+          ) : (
+            <span className="publish-status publish-status--hint">
+              {blog.status === 'published'
+                ? 'Not publicly visible (inactive).'
+                : `Not publicly visible (${blog.status}).`}
+            </span>
+          )}
         </div>
         <p className="page-heading__subtitle">{blog.title}</p>
       </div>

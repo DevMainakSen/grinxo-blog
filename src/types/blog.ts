@@ -26,6 +26,9 @@ export interface Blog {
   trending?: boolean;
   /** Present on blogs served from the backend; optional for bundled seed fallback. */
   status?: BlogStatus;
+  /** Whether the blog is publicly visible. Independent of `status`: a blog is
+   * public only when it is published AND active. Defaults to true when absent. */
+  isActive: boolean;
   /** Intended publication instant (ISO). Set while the blog is scheduled. */
   scheduledAt?: string;
   sections?: BlogSection[];

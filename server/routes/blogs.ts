@@ -7,6 +7,7 @@ import {
   listBlogs,
   listSavedBlogs,
   scheduleBlog,
+  setActivity,
   setStatus,
   toggleBookmark,
   toggleLike,
@@ -24,6 +25,7 @@ router.put('/:id', updateBlog);
 router.delete('/:id', deleteBlog);
 router.post('/:id/publish', setStatus);
 router.post('/:id/draft', setStatus);
+router.patch('/:id/activity', setActivity);
 router.post('/:id/schedule', scheduleBlog);
 router.post('/:id/like', toggleLike);
 router.post('/:id/bookmark', toggleBookmark);

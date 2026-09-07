@@ -14,6 +14,7 @@ export function normalizeBlog(blog: Blog): Blog {
     featuredImage,
     thumbnail: featuredImage,
     status: blog.status ?? 'draft',
+    isActive: blog.isActive ?? true,
     sections: blog.sections ?? [],
     seo: blog.seo ?? {},
   };
@@ -36,6 +37,7 @@ export function toBlogPayload(blog: Blog): Record<string, unknown> {
     featured: blog.featured,
     trending: blog.trending,
     status: blog.status,
+    isActive: blog.isActive ?? true,
     scheduledAt: blog.scheduledAt,
     sections: blog.sections ?? [],
     seo: blog.seo ?? {},

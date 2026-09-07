@@ -36,6 +36,9 @@ export interface Blog {
   featured: boolean;
   trending?: boolean;
   status: BlogStatus;
+  /** Whether the blog is publicly visible. Independent of `status`: a blog is
+   * public only when it is published AND active. Defaults to true when absent. */
+  isActive: boolean;
   /** Intended publication instant (ISO). Set while the blog is scheduled. */
   scheduledAt?: string;
   sections: BlogSection[];
@@ -76,6 +79,8 @@ export interface BlogInput {
   featured?: boolean;
   trending?: boolean;
   status?: BlogStatus;
+  /** Activity/visibility flag. Missing → treated as `true`. */
+  isActive?: boolean;
   /** Intended publication instant (ISO) — set when scheduling. */
   scheduledAt?: string;
   sections?: BlogSection[];

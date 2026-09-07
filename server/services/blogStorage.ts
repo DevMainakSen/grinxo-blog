@@ -118,7 +118,7 @@ function sanitizeHtml(html: string): string {
  */
 function sanitizeAttrs(tagName: string, rawAttrString: string): string {
   const parts: string[] = [];
-  const attrRe = /([a-zA-Z_:][a-zA-Z0-9_:.\-]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
+  const attrRe = /([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
   let m: RegExpExecArray | null;
   const seen = new Set<string>();
 
@@ -316,12 +316,36 @@ export function initStorage(): void {
   if (!existsSync(REDIRECTS_FILE)) {
     writeJson(REDIRECTS_FILE, []);
   }
-  cache = readFile<Blog[]>(BLOGS_FILE, []);
+  cache = migrateStoredBlogs(readFile<Blog[]>(BLOGS_FILE, []));
   redirectCache = readFile<SlugRedirect[]>(REDIRECTS_FILE, []);
+}
+
+/**
+ * Backfill `isActive` on legacy stored blogs (missing → true). Persists once
+ * when anything is upgraded so the JSON file stays forward-compatible. The
+ * fallback keeps pre-feature blogs publicly visible until an admin toggles them.
+ */
+function migrateStoredBlogs(blogs: Blog[]): Blog[] {
+  let changed = false;
+  const next = blogs.map((b) => {
+    if (typeof b.isActive === 'boolean') return b;
+    changed = true;
+    return { ...b, isActive: true };
+  });
+  if (changed) {
+    try {
+      writeJson(BLOGS_FILE, next);
+      cache = next;
+    } catch (error) {
+      console.error('[blogStorage] failed to migrate blogs.json:', error);
+    }
+  }
+  return next;
 }
 
 function refreshCache(): void {
   cache = readFile<Blog[]>(BLOGS_FILE, []);
+  cache = migrateStoredBlogs(cache);
   redirectCache = readFile<SlugRedirect[]>(REDIRECTS_FILE, []);
 }
 
@@ -331,7 +355,10 @@ export function getAllBlogs(): Blog[] {
 }
 
 export function getPublicBlogs(): Blog[] {
-  return getAllBlogs().filter((b) => b.status === 'published');
+  // Only published AND active blogs are ever exposed publicly.
+  return getAllBlogs().filter(
+    (b) => b.status === 'published' && b.isActive !== false
+  );
 }
 
 export function getBlogById(id: string): Blog | undefined {
@@ -379,6 +406,7 @@ export function createBlog(input: BlogInput): Blog {
     featured: input.featured ?? false,
     trending: input.trending ?? false,
     status: input.status ?? 'draft',
+    isActive: input.isActive ?? true,
     scheduledAt: input.scheduledAt,
     sections,
     seo: input.seo ?? {},
@@ -436,6 +464,7 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
     featured: fullInput.featured,
     trending: fullInput.trending,
     status: fullInput.status,
+    isActive: fullInput.isActive ?? existing.isActive ?? true,
     scheduledAt: fullInput.scheduledAt,
     sections,
     seo: mergedSeo,
@@ -447,6 +476,14 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
 
 export function setStatus(id: string, status: Blog['status']): Blog | undefined {
   return updateBlog(id, { status });
+}
+
+/**
+ * Set the activity/visibility flag on a blog. Independent of the publishing
+ * status: a published + inactive blog stays published but is hidden publicly.
+ */
+export function setActivity(id: string, isActive: boolean): Blog | undefined {
+  return updateBlog(id, { isActive });
 }
 
 export function deleteBlog(id: string): boolean {
@@ -467,6 +504,7 @@ function ensureEngagement(blog: Blog): Blog {
   const savedBy = blog.savedBy ?? [];
   return {
     ...blog,
+    isActive: blog.isActive ?? true,
     likeCount: baseline + likedBy.length,
     bookmarkCount: Math.floor(baseline / 2) + savedBy.length,
     likedBy,
@@ -519,10 +557,13 @@ export function toggleBookmark(id: string, clientId: string): Blog | undefined {
   return ensureEngagement(blogs[idx]);
 }
 
-/** Published blogs that the given client has bookmarked. */
+/** Published, active blogs that the given client has bookmarked. */
 export function getSavedBlogs(clientId: string): Blog[] {
   return getAllBlogs().filter(
-    (b) => b.status === 'published' && (b.savedBy ?? []).includes(clientId)
+    (b) =>
+      b.status === 'published' &&
+      b.isActive !== false &&
+      (b.savedBy ?? []).includes(clientId)
   );
 }
 

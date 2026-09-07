@@ -26,6 +26,7 @@ function normalizeInput(body: Record<string, unknown>): BlogInput {
     // A draft or published article is never scheduled — clear any old schedule.
     if (out.status !== 'scheduled') out.scheduledAt = undefined;
   }
+  if (has('isActive')) out.isActive = Boolean(body.isActive);
   if (has('scheduledAt')) out.scheduledAt = String(body.scheduledAt);
 
   // SEO metadata
@@ -83,8 +84,9 @@ export function getBlogById(req: Request, res: Response): void {
 
 export function getBlogBySlug(req: Request, res: Response): void {
   const blog = store.getBlogBySlug(String(req.params.slug));
-  // Public-facing endpoint: drafts are not exposed by slug.
-  if (!blog || blog.status !== 'published') {
+  // Public endpoint: drafts, scheduled, and inactive blogs are not exposed by
+  // slug — direct URL access behaves like a removed resource (404).
+  if (!blog || blog.status !== 'published' || blog.isActive === false) {
     res.status(404).json({ error: 'Blog not found' });
     return;
   }
@@ -171,6 +173,22 @@ export function scheduleBlog(req: Request, res: Response): void {
   res.json(toClient(blog));
 }
 
+/** Set the activity/visibility flag on a blog. Body: { isActive }. */
+export function setActivity(req: Request, res: Response): void {
+  const id = String(req.params.id);
+  const isActive = (req.body ?? {}).isActive;
+  if (typeof isActive !== 'boolean') {
+    res.status(400).json({ error: 'isActive must be a boolean' });
+    return;
+  }
+  const blog = store.setActivity(id, isActive);
+  if (!blog) {
+    res.status(404).json({ error: 'Blog not found' });
+    return;
+  }
+  res.json(toClient(blog));
+}
+
 export function deleteBlog(req: Request, res: Response): void {
   const ok = store.deleteBlog(String(req.params.id));
   if (!ok) {
@@ -216,5 +234,5 @@ export function toggleBookmark(req: Request, res: Response): void {
  * Present a blog to clients, exposing `thumbnail` as well as `featuredImage`.
  */
 function toClient(blog: import('../types/blog.ts').Blog) {
-  return { ...blog, thumbnail: blog.featuredImage };
+  return { ...blog, thumbnail: blog.featuredImage, isActive: blog.isActive ?? true };
 }

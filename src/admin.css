@@ -210,7 +210,8 @@
 .blog-table tbody tr:last-child td { border-bottom: none; }
 .blog-table tbody tr:hover { background: var(--color-bg-subtle); }
 .blog-table__col-thumb { width: 72px; }
-.blog-table__col-actions { width: 150px; text-align: right; }
+.blog-table__col-category { width: 150px; max-width: 150px; }
+.blog-table__col-actions { width: 250px; text-align: right; }
 
 .blog-table__thumb-link { display: block; width: 56px; height: 56px; border-radius: var(--radius-sm); overflow: hidden; }
 .blog-table__thumb { width: 100%; height: 100%; object-fit: cover; }
@@ -224,6 +225,16 @@
 /* Badges & status pills */
 .badge { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); }
 .badge--category { background: var(--color-primary-light); color: var(--color-primary); }
+/* Long category names must stay on one line in the table — truncate with an
+   ellipsis when the column is narrower than the text. */
+.blog-table__col-category .badge--category {
+  display: block;
+  width: 100%;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .badge--featured { background: var(--color-accent-light); color: var(--color-accent); }
 
 .status-pill {
@@ -243,6 +254,60 @@
 .status-pill--draft:hover { background: #e0e0e0; }
 .status-pill--scheduled { background: #fdf2d8; color: #a06a00; }
 .status-pill--scheduled:hover { background: #f7e2b0; }
+
+/* Activity state badge — shown in its own column, distinct from publishing status. */
+.activity-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+.activity-badge--active { background: #e7f0fe; color: #2055b0; }
+.activity-badge--inactive { background: #fdecec; color: #b02e2e; }
+
+/* Accessible switch (role="switch") used in the Actions column. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: var(--radius-full);
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text);
+  transition: background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+.switch__track {
+  position: relative;
+  width: 26px;
+  height: 15px;
+  border-radius: var(--radius-full);
+  background: #d0d0d0;
+  transition: background 0.18s ease;
+}
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease;
+}
+.switch[aria-checked='true'] .switch__track { background: var(--color-primary); }
+.switch[aria-checked='true'] .switch__thumb { transform: translateX(11px); }
+.switch:hover:not(:disabled) { border-color: var(--color-primary); }
+.switch:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.switch:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Alerts & toasts */
 .alert { padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.86rem; margin-bottom: 1.1rem; }
@@ -399,13 +464,32 @@
   -webkit-overflow-scrolling: touch;
   background: #fff;
 }
+/* The preview article is a size container so the "Mobile" frame triggers the
+   real article responsive rules (see the @container block below) instead of
+   squeezing the desktop layout into a narrow column. */
+.preview-modal__article { container-type: inline-size; }
 .preview-modal__body--mobile .preview-modal__article {
-  max-width: min(400px, 100%);
+  max-width: min(412px, 100%);
   margin: 0 auto;
   border-left: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border);
   min-height: 100%;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.03);
+}
+
+/* Mirror the public article's responsive rules against the preview container
+   width. These only fire inside the preview modal (the sole container context);
+   the live public page is unaffected. The public breakpoints are 960px
+   (tablet) and 600px (mobile) of viewport width; the mobile frame is ≤412px. */
+@container (max-width: 960px) {
+  .preview-modal__article .container { --container-px: 1.5rem; }
+  .preview-modal__article .article-layout { grid-template-columns: 1fr; }
+  .preview-modal__article .article-sidebar { position: static; }
+}
+@container (max-width: 600px) {
+  .preview-modal__article .container { --container-px: 1rem; }
+  .preview-modal__article .article-hero { height: 340px; }
+  .preview-modal__article .article-hero__title { font-size: 1.55rem; }
 }
 .preview-modal__footer {
   display: flex;

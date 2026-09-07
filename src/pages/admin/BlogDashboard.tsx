@@ -6,6 +6,7 @@ import {
   draftBlog,
   getAllBlogs,
   publishBlog,
+  setBlogActivity,
 } from '../../services/blogApi';
 import { normalizeBlog } from '../../utils/blog';
 import type { Blog, BlogStatus } from '../../types/blog';
@@ -41,6 +42,7 @@ export default function BlogDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Blog | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyActivityId, setBusyActivityId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(
     (location.state as { toast?: string } | null)?.toast ?? null
   );
@@ -103,6 +105,21 @@ export default function BlogDashboard() {
       setError(e instanceof Error ? e.message : 'Action failed');
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function toggleActivity(blog: Blog) {
+    const next = !blog.isActive;
+    setBusyActivityId(blog.id);
+    setError('');
+    try {
+      const updated = await setBlogActivity(blog.id, next);
+      setBlogs((prev) => prev.map((b) => (b.id === blog.id ? normalizeBlog(updated) : b)));
+      setToast(next ? 'Blog activated.' : 'Blog deactivated.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to update blog status. Please try again.');
+    } finally {
+      setBusyActivityId(null);
     }
   }
 
@@ -212,6 +229,7 @@ export default function BlogDashboard() {
                   <th scope="col">Blog Title</th>
                   <th scope="col">Category</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Activity</th>
                   <th scope="col">SEO</th>
                   <th scope="col">Date</th>
                   <th scope="col" className="blog-table__col-actions">Actions</th>
@@ -239,7 +257,7 @@ export default function BlogDashboard() {
                         {blog.featured && <span className="badge badge--featured">Featured</span>}
                       </div>
                     </td>
-                    <td>
+                    <td className="blog-table__col-category">
                       <span className="badge badge--category">{blog.category}</span>
                     </td>
                     <td>
@@ -262,6 +280,13 @@ export default function BlogDashboard() {
                             ? 'Scheduled'
                             : 'Draft'}
                       </button>
+                    </td>
+                    <td>
+                      <span
+                        className={`activity-badge activity-badge--${blog.isActive ? 'active' : 'inactive'}`}
+                      >
+                        {blog.isActive ? 'Active' : 'Inactive'}
+                      </span>
                     </td>
                     <td>
                       <span className="seo-status">
@@ -289,6 +314,31 @@ export default function BlogDashboard() {
                         <Link to={editPath(blog.id)} className="btn btn--ghost btn--sm">
                           Edit
                         </Link>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={blog.isActive}
+                          aria-label={`${blog.isActive ? 'Deactivate' : 'Activate'} ${blog.title}`}
+                          className={`switch${busyActivityId === blog.id ? ' switch--busy' : ''}`}
+                          onClick={() => void toggleActivity(blog)}
+                          disabled={busyId === blog.id || busyActivityId === blog.id}
+                          title={
+                            blog.isActive
+                              ? 'Deactivate — hide from the public site'
+                              : 'Activate — show on the public site (if published)'
+                          }
+                        >
+                          <span className="switch__track" aria-hidden="true">
+                            <span className="switch__thumb" />
+                          </span>
+                          <span className="switch__label" aria-hidden="true">
+                            {busyActivityId === blog.id
+                              ? 'Updating…'
+                              : blog.isActive
+                                ? 'Active'
+                                : 'Inactive'}
+                          </span>
+                        </button>
                         <button
                           type="button"
                           className="btn btn--danger-ghost btn--sm"

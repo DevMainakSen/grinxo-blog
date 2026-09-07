@@ -73,6 +73,13 @@ export const scheduleBlog = (id: string, scheduledAt: string): Promise<Blog> =>
     body: JSON.stringify({ scheduledAt }),
   });
 
+/** Set whether a blog is active (publicly visible). Admin only. */
+export const setBlogActivity = (id: string, isActive: boolean): Promise<Blog> =>
+  request<Blog>(`/api/blogs/${id}/activity`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+
 export const deleteBlog = (id: string): Promise<{ ok: true }> =>
   request<{ ok: true }>(`/api/blogs/${id}`, { method: 'DELETE' });
 

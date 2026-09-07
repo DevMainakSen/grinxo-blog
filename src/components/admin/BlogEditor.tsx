@@ -303,6 +303,11 @@ export default function BlogEditor({
                 Current status: <strong>{draft.status}</strong>
               </p>
             )}
+            <p className="publish-status publish-status--hint">
+              Activity: <strong>{draft.isActive ? 'Active' : 'Inactive'}</strong>
+              {draft.status === 'published' && !draft.isActive && ' — hidden from the public blog.'}
+              {draft.status === 'published' && draft.isActive && ' — visible on the public blog.'}
+            </p>
           </section>
         </aside>
       </div>
@@ -406,6 +411,7 @@ function buildInitial(initial?: Blog, presets?: BlogEditorProps['presets']): Blo
     category: '',
     tags: [],
     featured: false,
+    isActive: true,
     status: 'draft' as const,
     sections: [blankSection()],
     seo: {},
