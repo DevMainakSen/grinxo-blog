@@ -2,33 +2,34 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Blog } from '../../types/blog';
 import { useEngagement } from '../../hooks/useEngagement';
+import { resolveCanonicalUrl, resolveOgImage } from '../../utils/seo';
+import {
+  canShareFiles,
+  downloadImage,
+  getImageFile,
+  isNativeShareSupported,
+  nativeShare,
+  openInNewTab,
+} from '../../utils/share';
 
 interface BlogActionsProps {
   blog: Blog;
   variant?: 'hero' | 'icon';
 }
 
-/** Builds the canonical share URL from the article slug. */
-function articleUrl(blog: Blog): string {
-  const { origin, pathname } = window.location;
-  // In dev the app runs under /blog; fall back gracefully to a slug path.
-  const base = pathname.replace(/\/blog\/[^/]+$/, '').replace(/\/$/, '');
-  return `${origin}${base}/blog/${blog.slug}`;
-}
-
 type BrandName = 'whatsapp' | 'instagram' | 'facebook';
 
+type IgMode = 'story' | 'post' | 'dm';
+
+/** Top level of the share popover, or a view inside the Instagram drill-down. */
+type PopoverView = 'root' | 'ig' | IgMode;
+
+/** Direct web destinations that still work (as app opens). */
 const SHARE_OPTIONS: { label: string; icon: BrandName; build: (url: string) => string }[] = [
   {
     label: 'WhatsApp',
     icon: 'whatsapp',
     build: (url: string) => `https://wa.me/?text=${encodeURIComponent(url)}`,
-  },
-  {
-    label: 'Instagram',
-    icon: 'instagram',
-    build: (url: string) =>
-      `https://www.instagram.com/?url=${encodeURIComponent(url)}`,
   },
   {
     label: 'Facebook',
@@ -38,15 +39,67 @@ const SHARE_OPTIONS: { label: string; icon: BrandName; build: (url: string) => s
   },
 ];
 
+/** The three Instagram choices. Icons use the existing Material Symbols. */
+const IG_OPTIONS: { mode: IgMode; label: string; description: string; icon: string }[] = [
+  {
+    mode: 'story',
+    label: 'Share to Instagram Story',
+    description: 'Add this article to your Story',
+    icon: 'movie',
+  },
+  {
+    mode: 'post',
+    label: 'Share as Instagram Post',
+    description: 'Create an Instagram feed post',
+    icon: 'grid_on',
+  },
+  {
+    mode: 'dm',
+    label: 'Share via Instagram DM',
+    description: 'Send this article in a direct message',
+    icon: 'send',
+  },
+];
+
+/** Honest copy for the per-mode fallback panels. */
+const FALLBACK_COPY: Record<IgMode, { note: string }> = {
+  story: {
+    note: "Instagram doesn't let this website post to your Story directly. Download the image, then add it to your Story in the Instagram app.",
+  },
+  post: {
+    note: "Instagram doesn't let this website publish a post directly. Download the image, then create the post in the Instagram app and paste the link into the caption.",
+  },
+  dm: {
+    note: "Instagram can't open a new message thread from this website. Copy the link, open Instagram, and paste it into a direct message.",
+  },
+};
+
+/** Shared popover sizing per view, so the flip/clamp logic can stay accurate. */
+const VIEW_SPEC: Record<PopoverView, { width: number; height: number }> = {
+  root: { width: 210, height: 232 },
+  ig: { width: 300, height: 300 },
+  story: { width: 300, height: 340 },
+  post: { width: 300, height: 340 },
+  dm: { width: 300, height: 300 },
+};
+
 export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps) {
   const [engagement, actions] = useEngagement(blog);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [view, setView] = useState<PopoverView>('root');
+  const [igBusy, setIgBusy] = useState(false);
+  const [igMessage, setIgMessage] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const openedAt = useRef(0);
-  const url = articleUrl(blog);
+
+  // The public, shareable URL + assets. Draft/scheduled/inactive blogs never
+  // reach this component — it only renders on public blog pages.
+  const shareUrl = resolveCanonicalUrl(blog);
+  const shareImage = resolveOgImage(blog);
+  const shareText = [blog.title, blog.excerpt].filter(Boolean).join('\n\n');
 
   // Close the share popover on outside click (ignoring the press that opened it)
   // and on Escape. Nothing closes purely on hover, keeping the menu stable.
@@ -76,21 +129,113 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard unavailable */
+      setIgMessage("Couldn't copy the link. Copy it manually from the address bar.");
     }
   };
 
   const openShare = (button: HTMLElement) => {
     openedAt.current = Date.now();
+    setView('root');
+    setIgMessage(null);
+    setCopied(false);
     setAnchorRect(button.getBoundingClientRect());
     setShareOpen(true);
   };
 
   const closeShare = () => setShareOpen(false);
+  const openIgMenu = () => {
+    setIgMessage(null);
+    setView('ig');
+  };
+
+  /**
+   * Best supported path for the chosen mode. Returns true when the calling
+   * code should show the honest fallback panel instead.
+   */
+  async function tryNativeShare(mode: IgMode): Promise<boolean> {
+    try {
+      if (mode === 'dm') {
+        if (!isNativeShareSupported()) return true;
+        const result = await nativeShare({ title: blog.title, text: shareText, url: shareUrl });
+        if (result === 'shared') {
+          setIgMessage(
+            'Share sheet opened. If you picked Instagram, choose the conversation there.'
+          );
+          return false;
+        }
+        // Cancelled by the user — not an error.
+        if (result === 'cancelled') return false;
+        return true;
+      }
+
+      // Story + Post both hinge on handing an image to the native share sheet.
+      if (!canShareFiles()) return true;
+      if (!shareImage) {
+        setIgMessage('This blog has no image to attach. Copy the link below instead.');
+        return true;
+      }
+      const file = await getImageFile(shareImage, blog.slug || 'grinxo-blog');
+      if (!file) {
+        setIgMessage("Couldn't load the image for sharing. Copy the link below instead.");
+        return true;
+      }
+      const result = await nativeShare({ files: [file], text: shareText });
+      if (result === 'shared') {
+        setIgMessage(
+          mode === 'story'
+            ? 'Share sheet opened. If you picked Instagram, choose Story there.'
+            : 'Share sheet opened. If you picked Instagram, add a caption and post.'
+        );
+        return false;
+      }
+      if (result === 'cancelled') return false;
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
+  const handlePickIg = async (mode: IgMode) => {
+    setIgMessage(null);
+    setIgBusy(true);
+    const needFallback = await tryNativeShare(mode);
+    setIgBusy(false);
+    setView(needFallback ? mode : 'ig');
+  };
+
+  const handleDownloadImage = async () => {
+    if (!shareImage) {
+      setIgMessage('This blog has no image to download.');
+      return;
+    }
+    setIgBusy(true);
+    setIgMessage(null);
+    const saved = await downloadImage(shareImage, blog.slug || 'grinxo-blog');
+    setIgBusy(false);
+    if (saved) {
+      setIgMessage('Image downloaded. Upload it in the Instagram app.');
+    } else {
+      const opened = openInNewTab(shareImage);
+      setIgMessage(
+        opened
+          ? "Download wasn't available — the image opened in a new tab. Long-press to save it."
+          : "Couldn't download the image. Check your connection or save it from the blog."
+      );
+    }
+  };
+
+  const handleOpenInstagram = () => {
+    const opened = openInNewTab('https://www.instagram.com/');
+    if (!opened) {
+      setIgMessage(
+        "Your browser blocked the new tab. Allow pop-ups, or open instagram.com manually."
+      );
+    }
+  };
 
   const renderShare = () => (
     <div className="blog-actions__share-wrap" ref={wrapRef}>
@@ -122,10 +267,20 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
         <SharePopover
           popoverRef={popoverRef}
           anchorRect={anchorRect}
-          url={url}
+          view={view}
+          url={shareUrl}
           onCopy={handleCopy}
           copied={copied}
           onNavigate={closeShare}
+          onOpenIg={openIgMenu}
+          onBackToRoot={() => setView('root')}
+          onBackToIg={() => setView('ig')}
+          onPickIg={handlePickIg}
+          hasImage={Boolean(shareImage)}
+          igBusy={igBusy}
+          igMessage={igMessage}
+          onDownload={handleDownloadImage}
+          onOpenInstagram={handleOpenInstagram}
         />
       )}
     </div>
@@ -197,57 +352,204 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
 function SharePopover({
   popoverRef,
   anchorRect,
+  view,
   url,
   onCopy,
   copied,
   onNavigate,
+  onOpenIg,
+  onBackToRoot,
+  onBackToIg,
+  onPickIg,
+  hasImage,
+  igBusy,
+  igMessage,
+  onDownload,
+  onOpenInstagram,
 }: {
   popoverRef: React.RefObject<HTMLDivElement | null>;
   anchorRect: DOMRect;
+  view: PopoverView;
   url: string;
   onCopy: () => void;
   copied: boolean;
   onNavigate: () => void;
+  onOpenIg: () => void;
+  onBackToRoot: () => void;
+  onBackToIg: () => void;
+  onPickIg: (mode: IgMode) => void;
+  hasImage: boolean;
+  igBusy: boolean;
+  igMessage: string | null;
+  onDownload: () => void;
+  onOpenInstagram: () => void;
 }) {
-  const POPOVER_W = 210;
   const GAP = 8;
+  const spec = VIEW_SPEC[view];
   const viewW = window.innerWidth;
   // Clamp horizontally so the menu never runs off the right edge.
-  const left = Math.max(8, Math.min(anchorRect.left, viewW - POPOVER_W - 12));
+  const left = Math.max(8, Math.min(anchorRect.left, viewW - spec.width - 12));
   let top = anchorRect.bottom + GAP;
-  if (top + 240 > window.innerHeight) {
-    top = Math.max(8, anchorRect.top - 240 - GAP);
+  if (top + spec.height > window.innerHeight) {
+    top = Math.max(8, anchorRect.top - spec.height - GAP);
   }
+
+  const renderBackButton = (onClick: () => void, label: string) => (
+    <button type="button" className="share-popover__back" onClick={onClick}>
+      <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+      <span>{label}</span>
+    </button>
+  );
+
+  const renderStatus = () =>
+    igBusy ? (
+      <p className="share-popover__status" role="status">
+        Opening the system share sheet…
+      </p>
+    ) : igMessage ? (
+      <p className="share-popover__status" role="status">
+        {igMessage}
+      </p>
+    ) : null;
 
   const menu = (
     <div
       ref={popoverRef}
       className="share-popover"
-      style={{ position: 'fixed', left: Math.round(left), top: Math.round(top), width: POPOVER_W }}
+      style={{ position: 'fixed', left: Math.round(left), top: Math.round(top), width: spec.width }}
       role="menu"
       onClick={(e) => e.stopPropagation()}
     >
-      <p className="share-popover__label">Share this article</p>
-      <button type="button" className="share-popover__option" onClick={onCopy} role="menuitem">
-        <span className="material-symbols-outlined" aria-hidden="true">
-          {copied ? 'check' : 'link'}
-        </span>
-        <span>{copied ? 'Copied!' : 'Copy link'}</span>
-      </button>
-      {SHARE_OPTIONS.map((s) => (
-        <a
-          key={s.label}
-          className="share-popover__option"
-          href={s.build(url)}
-          target="_blank"
-          rel="noopener noreferrer"
-          role="menuitem"
-          onClick={onNavigate}
-        >
-          <BrandIcon name={s.icon} />
-          <span>{s.label}</span>
-        </a>
-      ))}
+      {view === 'root' && (
+        <>
+          <p className="share-popover__label">Share this article</p>
+          <button type="button" className="share-popover__option" onClick={onCopy} role="menuitem">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {copied ? 'check' : 'link'}
+            </span>
+            <span>{copied ? 'Copied!' : 'Copy link'}</span>
+          </button>
+          {/* WhatsApp / Facebook still navigate directly to the platform. */}
+          {SHARE_OPTIONS.filter((s) => s.icon === 'whatsapp').map((s) => (
+            <a
+              key={s.label}
+              className="share-popover__option"
+              href={s.build(url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              onClick={onNavigate}
+            >
+              <BrandIcon name={s.icon} />
+              <span>{s.label}</span>
+            </a>
+          ))}
+          {/* Instagram opens a submenu instead of navigating, so the user
+              can choose Story / Post / DM with honest, supported behavior. */}
+          <button
+            type="button"
+            className="share-popover__option share-popover__option--with-chevron"
+            role="menuitem"
+            onClick={onOpenIg}
+          >
+            <BrandIcon name="instagram" />
+            <span>Instagram</span>
+            <span className="share-popover__chevron" aria-hidden="true">›</span>
+          </button>
+          {SHARE_OPTIONS.filter((s) => s.icon === 'facebook').map((s) => (
+            <a
+              key={s.label}
+              className="share-popover__option"
+              href={s.build(url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              onClick={onNavigate}
+            >
+              <BrandIcon name={s.icon} />
+              <span>{s.label}</span>
+            </a>
+          ))}
+        </>
+      )}
+
+      {view === 'ig' && (
+        <>
+          {renderBackButton(onBackToRoot, "Back to all options")}
+          <p className="share-popover__title">
+            <BrandIcon name="instagram" />
+            <span>Share on Instagram</span>
+          </p>
+          {IG_OPTIONS.map((opt) => (
+            <button
+              key={opt.mode}
+              type="button"
+              className="share-popover__ig-option"
+              role="menuitem"
+              disabled={igBusy}
+              onClick={() => onPickIg(opt.mode)}
+            >
+              <span className="share-popover__ig-option-icon">
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  {opt.icon}
+                </span>
+              </span>
+              <span className="share-popover__ig-option-body">
+                <span className="share-popover__ig-option-label">{opt.label}</span>
+                <span className="share-popover__ig-option-desc">{opt.description}</span>
+              </span>
+              <span className="share-popover__ig-option-chevron" aria-hidden="true">›</span>
+            </button>
+          ))}
+          {renderStatus()}
+        </>
+      )}
+
+      {view !== 'root' && view !== 'ig' && (
+        <>
+          {renderBackButton(onBackToIg, "Back to Instagram options")}
+          <p className="share-popover__title">
+            <BrandIcon name="instagram" />
+            <span>{IG_OPTIONS.find((o) => o.mode === view)?.label}</span>
+          </p>
+          <p className="share-popover__note">{FALLBACK_COPY[view].note}</p>
+          {hasImage && view !== 'dm' && (
+            <button
+              type="button"
+              className="share-popover__option"
+              role="menuitem"
+              disabled={igBusy}
+              onClick={onDownload}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">download</span>
+              <span>{igBusy ? 'Downloading…' : 'Download image'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="share-popover__option"
+            role="menuitem"
+            onClick={onCopy}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {copied ? 'check' : 'link'}
+            </span>
+            <span>{copied ? 'Blog link copied' : 'Copy blog link'}</span>
+          </button>
+          <a
+            className="share-popover__option"
+            href="https://www.instagram.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={onOpenInstagram}
+          >
+            <BrandIcon name="instagram" />
+            <span>Open Instagram</span>
+          </a>
+          {renderStatus()}
+        </>
+      )}
     </div>
   );
 

@@ -984,6 +984,127 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 .share-popover__icon--instagram { color: #e1306c; }
 .share-popover__icon--facebook { color: #1877f2; }
 
+/* --- Share popover: Instagram drill-down --- */
+.share-popover {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+.share-popover__back {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.15rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.share-popover__back:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-primary);
+}
+.share-popover__title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--color-text);
+  padding: 0.35rem 0.6rem 0.5rem;
+}
+.share-popover__option--with-chevron {
+  justify-content: flex-start;
+}
+.share-popover__chevron {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+.share-popover__ig-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.15rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.share-popover__ig-option:hover { background: var(--color-bg-muted); }
+.share-popover__ig-option:disabled { opacity: 0.6; cursor: wait; }
+.share-popover__ig-option-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fde7ef;
+  color: #d62976;
+}
+.share-popover__ig-option-icon .material-symbols-outlined { font-size: 19px; }
+.share-popover__ig-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.share-popover__ig-option-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.share-popover__ig-option-desc {
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+.share-popover__ig-option-chevron {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+.share-popover__note {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+  margin: 0.15rem 0.4rem 0.55rem;
+}
+.share-popover__status {
+  font-size: 0.78rem;
+  color: var(--color-primary);
+  line-height: 1.5;
+  padding: 0.4rem 0.6rem 0.2rem;
+}
+.share-popover__option:focus-visible,
+.share-popover__back:focus-visible,
+.share-popover__ig-option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+/* Comfortable touch targets for the Instagram rows on small screens. */
+.share-popover__ig-option {
+  min-height: 52px;
+}
+
 /* =========================================================
    CATEGORY SIDEBAR  — "Explore Topics"
    ========================================================= */
