@@ -18,79 +18,157 @@ interface BlogActionsProps {
 }
 
 type BrandName = 'whatsapp' | 'instagram' | 'facebook';
+type PlatformKey = 'instagram' | 'facebook';
+type ShareMode = 'story' | 'post' | 'dm' | 'timeline';
 
-type IgMode = 'story' | 'post' | 'dm';
+/** Which panel the popover is showing. Submenus and fallbacks are generic —
+ *  every platform is just data, so adding LinkedIn/X later means adding a
+ *  config entry, not another component. */
+type PopoverView =
+  | { panel: 'root' }
+  | { panel: 'submenu'; platform: PlatformKey }
+  | { panel: 'fallback'; platform: PlatformKey; mode: ShareMode };
 
-/** Top level of the share popover, or a view inside the Instagram drill-down. */
-type PopoverView = 'root' | 'ig' | IgMode;
+/** Root menu rows: either a direct deep link, or a button that opens that
+ *  platform's submenu. */
+interface RootOption {
+  label: string;
+  icon: BrandName;
+  kind: 'direct' | 'submenu';
+  build?: (url: string) => string;
+  platform?: PlatformKey;
+}
+
+/** A single sharing destination inside a platform's submenu. */
+interface SubOption {
+  mode: ShareMode;
+  label: string;
+  description: string;
+  icon: string;
+  /** image = native share with an attached image file (Story/Post).
+   *  text  = native text+link share (DM).
+   *  link  = Timeline: native set on touch devices, else open the
+   *          platform's own share dialog (no fallback panel). */
+  kind: 'image' | 'text' | 'link';
+  downloadImage?: boolean;
+}
+
+interface PlatformConfig {
+  key: PlatformKey;
+  appName: string;
+  siteUrl: string;
+  title: string;
+  /** Opens the platform's own share dialog for a URL (Facebook only). */
+  sharer?: (url: string) => string;
+  options: SubOption[];
+}
 
 /** Direct web destinations that still work (as app opens). */
-const SHARE_OPTIONS: { label: string; icon: BrandName; build: (url: string) => string }[] = [
+const ROOT_OPTIONS: RootOption[] = [
   {
     label: 'WhatsApp',
     icon: 'whatsapp',
+    kind: 'direct',
     build: (url: string) => `https://wa.me/?text=${encodeURIComponent(url)}`,
   },
-  {
-    label: 'Facebook',
-    icon: 'facebook',
-    build: (url: string) =>
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-  },
+  { label: 'Instagram', icon: 'instagram', kind: 'submenu', platform: 'instagram' },
+  { label: 'Facebook', icon: 'facebook', kind: 'submenu', platform: 'facebook' },
 ];
 
-/** The three Instagram choices. Icons use the existing Material Symbols. */
-const IG_OPTIONS: { mode: IgMode; label: string; description: string; icon: string }[] = [
-  {
-    mode: 'story',
-    label: 'Share to Instagram Story',
-    description: 'Add this article to your Story',
-    icon: 'movie',
+/** One generic submenu per platform. Icons use the existing Material Symbols. */
+const PLATFORMS: Record<PlatformKey, PlatformConfig> = {
+  instagram: {
+    key: 'instagram',
+    appName: 'Instagram',
+    siteUrl: 'https://www.instagram.com/',
+    title: 'Share on Instagram',
+    options: [
+      {
+        mode: 'story',
+        label: 'Share to Instagram Story',
+        description: 'Add this article to your Story',
+        icon: 'movie',
+        kind: 'image',
+      },
+      {
+        mode: 'post',
+        label: 'Share as Instagram Post',
+        description: 'Create an Instagram feed post',
+        icon: 'grid_on',
+        kind: 'image',
+      },
+      {
+        mode: 'dm',
+        label: 'Share via Instagram DM',
+        description: 'Send this article in a direct message',
+        icon: 'send',
+        kind: 'text',
+        downloadImage: false,
+      },
+    ],
   },
-  {
-    mode: 'post',
-    label: 'Share as Instagram Post',
-    description: 'Create an Instagram feed post',
-    icon: 'grid_on',
-  },
-  {
-    mode: 'dm',
-    label: 'Share via Instagram DM',
-    description: 'Send this article in a direct message',
-    icon: 'send',
-  },
-];
-
-/** Honest copy for the per-mode fallback panels. */
-const FALLBACK_COPY: Record<IgMode, { note: string }> = {
-  story: {
-    note: "Instagram doesn't let this website post to your Story directly. Download the image, then add it to your Story in the Instagram app.",
-  },
-  post: {
-    note: "Instagram doesn't let this website publish a post directly. Download the image, then create the post in the Instagram app and paste the link into the caption.",
-  },
-  dm: {
-    note: "Instagram can't open a new message thread from this website. Copy the link, open Instagram, and paste it into a direct message.",
+  facebook: {
+    key: 'facebook',
+    appName: 'Facebook',
+    siteUrl: 'https://www.facebook.com/',
+    title: 'Share on Facebook',
+    sharer: (url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    options: [
+      {
+        mode: 'story',
+        label: 'Share to Facebook Story',
+        description: 'Add this blog to your Story',
+        icon: 'movie',
+        kind: 'image',
+      },
+      {
+        mode: 'timeline',
+        label: 'Share to Facebook Timeline',
+        description: 'Share this blog on your Timeline',
+        icon: 'public',
+        kind: 'link',
+      },
+    ],
   },
 };
 
-/** Shared popover sizing per view, so the flip/clamp logic can stay accurate. */
-const VIEW_SPEC: Record<PopoverView, { width: number; height: number }> = {
-  root: { width: 210, height: 232 },
-  ig: { width: 300, height: 300 },
-  story: { width: 300, height: 340 },
-  post: { width: 300, height: 340 },
-  dm: { width: 300, height: 300 },
+/** Honest copy for the per-mode fallback panels. Keyed `platform:mode` — the
+ *  website never claims a post was published; it tells the user exactly what
+ *  to do next. */
+const FALLBACK_NOTES: Record<string, string> = {
+  'instagram:story':
+    "Instagram doesn't let this website post to your Story directly. Download the image, then add it to your Story in the Instagram app.",
+  'instagram:post':
+    "Instagram doesn't let this website publish a post directly. Download the image, then create the post in the Instagram app and paste the link into the caption.",
+  'instagram:dm':
+    "Instagram can't open a new message thread from this website. Copy the link, open Instagram, and paste it into a direct message.",
+  'facebook:story':
+    "Facebook doesn't let a website post to your Story directly. Download the image, then add it to your Story in the Facebook app.",
 };
+
+const ROOT_SPEC = { width: 210, height: 232 };
+const SUBMENU_SPEC = { width: 300, height: 300 };
+const FALLBACK_SPEC = { width: 300, height: 340 };
+
+/** The device's native share sheet is the recommended Facebook workaround on
+ *  phones (iOS Safari's sharer.php redirect is broken with the FB app
+ *  installed), and it appears in the sheet there. On desktop keep using the
+ *  platform's own web dialog so there is no jump to a generic sheet. */
+function prefersNativeShareSheet() {
+  return (
+    typeof navigator !== 'undefined' &&
+    (navigator.maxTouchPoints > 0 || 'ontouchstart' in window)
+  );
+}
 
 export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps) {
   const [engagement, actions] = useEngagement(blog);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-  const [view, setView] = useState<PopoverView>('root');
-  const [igBusy, setIgBusy] = useState(false);
-  const [igMessage, setIgMessage] = useState<string | null>(null);
+  const [view, setView] = useState<PopoverView>({ panel: 'root' });
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const openedAt = useRef(0);
@@ -133,37 +211,37 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      setIgMessage("Couldn't copy the link. Copy it manually from the address bar.");
+      setShareMessage("Couldn't copy the link. Copy it manually from the address bar.");
     }
   };
 
   const openShare = (button: HTMLElement) => {
     openedAt.current = Date.now();
-    setView('root');
-    setIgMessage(null);
+    setView({ panel: 'root' });
+    setShareMessage(null);
     setCopied(false);
     setAnchorRect(button.getBoundingClientRect());
     setShareOpen(true);
   };
 
   const closeShare = () => setShareOpen(false);
-  const openIgMenu = () => {
-    setIgMessage(null);
-    setView('ig');
+
+  const openPlatformMenu = (platform: PlatformKey) => {
+    setShareMessage(null);
+    setView({ panel: 'submenu', platform });
   };
 
-  /**
-   * Best supported path for the chosen mode. Returns true when the calling
-   * code should show the honest fallback panel instead.
-   */
-  async function tryNativeShare(mode: IgMode): Promise<boolean> {
+  /** Best supported path for an image/text option. Returns true when the
+   *  calling code should show the honest fallback panel instead. */
+  async function tryNativeShare(platform: PlatformKey, opt: SubOption): Promise<boolean> {
+    const { appName } = PLATFORMS[platform];
     try {
-      if (mode === 'dm') {
-        if (!isNativeShareSupported()) return true;
+      if (!isNativeShareSupported()) return true;
+      if (opt.kind === 'text') {
         const result = await nativeShare({ title: blog.title, text: shareText, url: shareUrl });
         if (result === 'shared') {
-          setIgMessage(
-            'Share sheet opened. If you picked Instagram, choose the conversation there.'
+          setShareMessage(
+            `Share sheet opened. If you picked ${appName}, choose the conversation there.`
           );
           return false;
         }
@@ -175,20 +253,20 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
       // Story + Post both hinge on handing an image to the native share sheet.
       if (!canShareFiles()) return true;
       if (!shareImage) {
-        setIgMessage('This blog has no image to attach. Copy the link below instead.');
+        setShareMessage('This blog has no image to attach. Copy the link below instead.');
         return true;
       }
       const file = await getImageFile(shareImage, blog.slug || 'grinxo-blog');
       if (!file) {
-        setIgMessage("Couldn't load the image for sharing. Copy the link below instead.");
+        setShareMessage("Couldn't load the image for sharing. Copy the link below instead.");
         return true;
       }
       const result = await nativeShare({ files: [file], text: shareText });
       if (result === 'shared') {
-        setIgMessage(
-          mode === 'story'
-            ? 'Share sheet opened. If you picked Instagram, choose Story there.'
-            : 'Share sheet opened. If you picked Instagram, add a caption and post.'
+        setShareMessage(
+          opt.mode === 'story'
+            ? `Share sheet opened. If you picked ${appName}, choose Story there.`
+            : `Share sheet opened. If you picked ${appName}, add a caption and post.`
         );
         return false;
       }
@@ -199,40 +277,65 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
     }
   }
 
-  const handlePickIg = async (mode: IgMode) => {
-    setIgMessage(null);
-    setIgBusy(true);
-    const needFallback = await tryNativeShare(mode);
-    setIgBusy(false);
-    setView(needFallback ? mode : 'ig');
-  };
-
-  const handleDownloadImage = async () => {
-    if (!shareImage) {
-      setIgMessage('This blog has no image to download.');
+  const handlePickOption = async (platform: PlatformKey, opt: SubOption) => {
+    setShareMessage(null);
+    // 1. Timeline: hand the link to the share sheet on touch devices, or open
+    //    Facebook's own share dialog on desktop. No fallback panel needed —
+    //    the dialog itself is the UX and never counts as "posted".
+    if (opt.kind === 'link') {
+      const cfg = PLATFORMS[platform];
+      if (prefersNativeShareSheet() && isNativeShareSupported()) {
+        setShareBusy(true);
+        const result = await nativeShare({ title: blog.title, text: shareText, url: shareUrl });
+        setShareBusy(false);
+        if (result === 'shared') {
+          setShareMessage(
+            `Share sheet opened. If you picked ${cfg.appName}, post from there.`
+          );
+          return;
+        }
+        if (result === 'cancelled') return;
+        // Unsupported once we actually tried — fall through to the web dialog.
+      }
+      if (cfg.sharer) {
+        const opened = openInNewTab(cfg.sharer(shareUrl));
+        setShareMessage(
+          opened
+            ? `${cfg.appName}'s share window opened — finish the post there.`
+            : `Your browser blocked the ${cfg.appName} window. Allow pop-ups, or copy the link from the menu.`
+        );
+        return;
+      }
       return;
     }
-    setIgBusy(true);
-    setIgMessage(null);
+
+    // 2. Story / Post / DM: try the native sheet first, else fall back.
+    setShareBusy(true);
+    const needFallback = await tryNativeShare(platform, opt);
+    setShareBusy(false);
+    setView(
+      needFallback ? { panel: 'fallback', platform, mode: opt.mode } : { panel: 'submenu', platform }
+    );
+  };
+
+  const handleDownloadImage = async (platform: PlatformKey) => {
+    if (!shareImage) {
+      setShareMessage('This blog has no image to download.');
+      return;
+    }
+    const { appName } = PLATFORMS[platform];
+    setShareBusy(true);
+    setShareMessage(null);
     const saved = await downloadImage(shareImage, blog.slug || 'grinxo-blog');
-    setIgBusy(false);
+    setShareBusy(false);
     if (saved) {
-      setIgMessage('Image downloaded. Upload it in the Instagram app.');
+      setShareMessage(`Image downloaded. Upload it in the ${appName} app.`);
     } else {
       const opened = openInNewTab(shareImage);
-      setIgMessage(
+      setShareMessage(
         opened
           ? "Download wasn't available — the image opened in a new tab. Long-press to save it."
           : "Couldn't download the image. Check your connection or save it from the blog."
-      );
-    }
-  };
-
-  const handleOpenInstagram = () => {
-    const opened = openInNewTab('https://www.instagram.com/');
-    if (!opened) {
-      setIgMessage(
-        "Your browser blocked the new tab. Allow pop-ups, or open instagram.com manually."
       );
     }
   };
@@ -272,15 +375,14 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
           onCopy={handleCopy}
           copied={copied}
           onNavigate={closeShare}
-          onOpenIg={openIgMenu}
-          onBackToRoot={() => setView('root')}
-          onBackToIg={() => setView('ig')}
-          onPickIg={handlePickIg}
+          onOpenPlatform={openPlatformMenu}
+          onBackToRoot={() => setView({ panel: 'root' })}
+          onBackToPlatform={(platform) => setView({ panel: 'submenu', platform })}
+          onPickOption={handlePickOption}
           hasImage={Boolean(shareImage)}
-          igBusy={igBusy}
-          igMessage={igMessage}
+          shareBusy={shareBusy}
+          shareMessage={shareMessage}
           onDownload={handleDownloadImage}
-          onOpenInstagram={handleOpenInstagram}
         />
       )}
     </div>
@@ -357,15 +459,14 @@ function SharePopover({
   onCopy,
   copied,
   onNavigate,
-  onOpenIg,
+  onOpenPlatform,
   onBackToRoot,
-  onBackToIg,
-  onPickIg,
+  onBackToPlatform,
+  onPickOption,
   hasImage,
-  igBusy,
-  igMessage,
+  shareBusy,
+  shareMessage,
   onDownload,
-  onOpenInstagram,
 }: {
   popoverRef: React.RefObject<HTMLDivElement | null>;
   anchorRect: DOMRect;
@@ -374,18 +475,18 @@ function SharePopover({
   onCopy: () => void;
   copied: boolean;
   onNavigate: () => void;
-  onOpenIg: () => void;
+  onOpenPlatform: (platform: PlatformKey) => void;
   onBackToRoot: () => void;
-  onBackToIg: () => void;
-  onPickIg: (mode: IgMode) => void;
+  onBackToPlatform: (platform: PlatformKey) => void;
+  onPickOption: (platform: PlatformKey, opt: SubOption) => void;
   hasImage: boolean;
-  igBusy: boolean;
-  igMessage: string | null;
-  onDownload: () => void;
-  onOpenInstagram: () => void;
+  shareBusy: boolean;
+  shareMessage: string | null;
+  onDownload: (platform: PlatformKey) => void;
 }) {
   const GAP = 8;
-  const spec = VIEW_SPEC[view];
+  const spec =
+    view.panel === 'root' ? ROOT_SPEC : view.panel === 'submenu' ? SUBMENU_SPEC : FALLBACK_SPEC;
   const viewW = window.innerWidth;
   // Clamp horizontally so the menu never runs off the right edge.
   const left = Math.max(8, Math.min(anchorRect.left, viewW - spec.width - 12));
@@ -402,15 +503,22 @@ function SharePopover({
   );
 
   const renderStatus = () =>
-    igBusy ? (
+    shareBusy ? (
       <p className="share-popover__status" role="status">
         Opening the system share sheet…
       </p>
-    ) : igMessage ? (
+    ) : shareMessage ? (
       <p className="share-popover__status" role="status">
-        {igMessage}
+        {shareMessage}
       </p>
     ) : null;
+
+  const platform =
+    view.panel === 'submenu' || view.panel === 'fallback' ? PLATFORMS[view.platform] : null;
+  const fallback =
+    view.panel === 'fallback' && platform
+      ? platform.options.find((o) => o.mode === view.mode)
+      : null;
 
   const menu = (
     <div
@@ -420,7 +528,7 @@ function SharePopover({
       role="menu"
       onClick={(e) => e.stopPropagation()}
     >
-      {view === 'root' && (
+      {view.panel === 'root' && (
         <>
           <p className="share-popover__label">Share this article</p>
           <button type="button" className="share-popover__option" onClick={onCopy} role="menuitem">
@@ -429,100 +537,90 @@ function SharePopover({
             </span>
             <span>{copied ? 'Copied!' : 'Copy link'}</span>
           </button>
-          {/* WhatsApp / Facebook still navigate directly to the platform. */}
-          {SHARE_OPTIONS.filter((s) => s.icon === 'whatsapp').map((s) => (
-            <a
-              key={s.label}
-              className="share-popover__option"
-              href={s.build(url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              role="menuitem"
-              onClick={onNavigate}
-            >
-              <BrandIcon name={s.icon} />
-              <span>{s.label}</span>
-            </a>
-          ))}
-          {/* Instagram opens a submenu instead of navigating, so the user
-              can choose Story / Post / DM with honest, supported behavior. */}
-          <button
-            type="button"
-            className="share-popover__option share-popover__option--with-chevron"
-            role="menuitem"
-            onClick={onOpenIg}
-          >
-            <BrandIcon name="instagram" />
-            <span>Instagram</span>
-            <span className="share-popover__chevron" aria-hidden="true">›</span>
-          </button>
-          {SHARE_OPTIONS.filter((s) => s.icon === 'facebook').map((s) => (
-            <a
-              key={s.label}
-              className="share-popover__option"
-              href={s.build(url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              role="menuitem"
-              onClick={onNavigate}
-            >
-              <BrandIcon name={s.icon} />
-              <span>{s.label}</span>
-            </a>
-          ))}
+          {/* Direct deep links (WhatsApp) vs submenu buttons (platforms). */}
+          {ROOT_OPTIONS.map((o) =>
+            o.kind === 'direct' && o.build ? (
+              <a
+                key={o.label}
+                className="share-popover__option"
+                href={o.build(url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                onClick={onNavigate}
+              >
+                <BrandIcon name={o.icon} />
+                <span>{o.label}</span>
+              </a>
+            ) : (
+              <button
+                key={o.label}
+                type="button"
+                className="share-popover__option share-popover__option--with-chevron"
+                role="menuitem"
+                onClick={() => o.platform && onOpenPlatform(o.platform)}
+              >
+                <BrandIcon name={o.icon} />
+                <span>{o.label}</span>
+                <span className="share-popover__chevron" aria-hidden="true">›</span>
+              </button>
+            )
+          )}
         </>
       )}
 
-      {view === 'ig' && (
+      {/* Generic platform submenu: same structure for Instagram and Facebook. */}
+      {view.panel === 'submenu' && platform && (
         <>
-          {renderBackButton(onBackToRoot, "Back to all options")}
+          {renderBackButton(onBackToRoot, 'Back to all options')}
           <p className="share-popover__title">
-            <BrandIcon name="instagram" />
-            <span>Share on Instagram</span>
+            <BrandIcon name={platform.key} />
+            <span>{platform.title}</span>
           </p>
-          {IG_OPTIONS.map((opt) => (
+          {platform.options.map((opt) => (
             <button
               key={opt.mode}
               type="button"
-              className="share-popover__ig-option"
+              className="share-popover__option-card"
               role="menuitem"
-              disabled={igBusy}
-              onClick={() => onPickIg(opt.mode)}
+              disabled={shareBusy}
+              onClick={() => onPickOption(platform.key, opt)}
             >
-              <span className="share-popover__ig-option-icon">
+              <span className="share-popover__option-card-icon">
                 <span className="material-symbols-outlined" aria-hidden="true">
                   {opt.icon}
                 </span>
               </span>
-              <span className="share-popover__ig-option-body">
-                <span className="share-popover__ig-option-label">{opt.label}</span>
-                <span className="share-popover__ig-option-desc">{opt.description}</span>
+              <span className="share-popover__option-card-body">
+                <span className="share-popover__option-card-label">{opt.label}</span>
+                <span className="share-popover__option-card-desc">{opt.description}</span>
               </span>
-              <span className="share-popover__ig-option-chevron" aria-hidden="true">›</span>
+              <span className="share-popover__option-card-chevron" aria-hidden="true">›</span>
             </button>
           ))}
           {renderStatus()}
         </>
       )}
 
-      {view !== 'root' && view !== 'ig' && (
+      {/* Honest fallback panel: tells the user exactly what to do next. */}
+      {view.panel === 'fallback' && platform && fallback && (
         <>
-          {renderBackButton(onBackToIg, "Back to Instagram options")}
+          {renderBackButton(() => onBackToPlatform(platform.key), `Back to ${platform.appName} options`)}
           <p className="share-popover__title">
-            <BrandIcon name="instagram" />
-            <span>{IG_OPTIONS.find((o) => o.mode === view)?.label}</span>
+            <BrandIcon name={platform.key} />
+            <span>{fallback.label}</span>
           </p>
-          <p className="share-popover__note">{FALLBACK_COPY[view].note}</p>
-          {hasImage && view !== 'dm' && (
+          <p className="share-popover__note">{FALLBACK_NOTES[`${platform.key}:${fallback.mode}`]}</p>
+          {hasImage && fallback.downloadImage !== false && (
             <button
               type="button"
               className="share-popover__option"
               role="menuitem"
-              disabled={igBusy}
-              onClick={onDownload}
+              disabled={shareBusy}
+              onClick={() => onDownload(platform.key)}
             >
               <span className="material-symbols-outlined" aria-hidden="true">download</span>
-              <span>{igBusy ? 'Downloading…' : 'Download image'}</span>
+              <span>{shareBusy ? 'Downloading…' : 'Download image'}</span>
             </button>
           )}
           <button
@@ -538,14 +636,13 @@ function SharePopover({
           </button>
           <a
             className="share-popover__option"
-            href="https://www.instagram.com/"
+            href={platform.siteUrl}
             target="_blank"
             rel="noopener noreferrer"
             role="menuitem"
-            onClick={onOpenInstagram}
           >
-            <BrandIcon name="instagram" />
-            <span>Open Instagram</span>
+            <BrandIcon name={platform.key} />
+            <span>Open {platform.appName}</span>
           </a>
           {renderStatus()}
         </>
