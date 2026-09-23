@@ -410,6 +410,7 @@ export function createBlog(input: BlogInput): Blog {
     scheduledAt: input.scheduledAt,
     sections,
     seo: input.seo ?? {},
+    socialSharing: input.socialSharing ?? {},
   };
   const blogs = getAllBlogs();
   blogs.unshift(blog);
@@ -440,6 +441,12 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
   // Merge SEO: preserve existing fields not sent in the update.
   const mergedSeo: BlogSeo = { ...existing.seo, ...(input.seo ?? {}) };
 
+  // Social sharing: replace only when explicitly sent (clearing sends {}).
+  // Status/activity-only updates omit the key and keep the existing config.
+  const mergedSocialSharing = Object.prototype.hasOwnProperty.call(input, 'socialSharing')
+    ? input.socialSharing
+    : existing.socialSharing;
+
   const updated: Blog = {
     ...existing,
     title: fullInput.title,
@@ -468,6 +475,7 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
     scheduledAt: fullInput.scheduledAt,
     sections,
     seo: mergedSeo,
+    socialSharing: mergedSocialSharing,
   };
   blogs[idx] = updated;
   persist(blogs);

@@ -1,6 +1,100 @@
 import type { Request, Response } from 'express';
 import * as store from '../services/blogStorage.ts';
-import type { BlogInput, BlogSeo } from '../types/blog.ts';
+import type {
+  BlogInput,
+  BlogSeo,
+  BlogSocialSharing,
+  SocialShareFacebook,
+  SocialShareInstagram,
+  SocialSharePost,
+  SocialShareStory,
+  SocialShareTimeline,
+} from '../types/blog.ts';
+
+function sanitizeString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const s = String(value).trim();
+  return s === '' ? undefined : s;
+}
+
+function sanitizeHashtags(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const tags = value.map((t) => String(t).trim()).filter(Boolean);
+  const cleaned = tags.map((t) => t.replace(/\s+/g, ''));
+  return cleaned.length ? cleaned : undefined;
+}
+
+function sanitizeStory(raw: Record<string, unknown> | undefined): SocialShareStory | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: SocialShareStory = {};
+  const image = sanitizeString(raw.image);
+  const title = sanitizeString(raw.title);
+  const text = sanitizeString(raw.text);
+  const hashtags = raw.hashtags !== undefined ? sanitizeHashtags(raw.hashtags) : undefined;
+  if (image !== undefined) out.image = image;
+  if (title !== undefined) out.title = title;
+  if (text !== undefined) out.text = text;
+  if (hashtags !== undefined) out.hashtags = hashtags;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function sanitizePost(raw: Record<string, unknown> | undefined): SocialSharePost | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: SocialSharePost = {};
+  const image = sanitizeString(raw.image);
+  const caption = sanitizeString(raw.caption);
+  const hashtags = raw.hashtags !== undefined ? sanitizeHashtags(raw.hashtags) : undefined;
+  if (image !== undefined) out.image = image;
+  if (caption !== undefined) out.caption = caption;
+  if (hashtags !== undefined) out.hashtags = hashtags;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function sanitizeTimeline(raw: Record<string, unknown> | undefined): SocialShareTimeline | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: SocialShareTimeline = {};
+  const image = sanitizeString(raw.image);
+  const title = sanitizeString(raw.title);
+  const description = sanitizeString(raw.description);
+  const text = sanitizeString(raw.text);
+  const hashtags = raw.hashtags !== undefined ? sanitizeHashtags(raw.hashtags) : undefined;
+  if (image !== undefined) out.image = image;
+  if (title !== undefined) out.title = title;
+  if (description !== undefined) out.description = description;
+  if (text !== undefined) out.text = text;
+  if (hashtags !== undefined) out.hashtags = hashtags;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function sanitizeSocialSharing(raw: unknown): BlogSocialSharing | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const body = raw as Record<string, unknown>;
+  const instagramRaw = body.instagram as Record<string, unknown> | undefined;
+  const facebookRaw = body.facebook as Record<string, unknown> | undefined;
+  const out: BlogSocialSharing = {};
+
+  if (instagramRaw && typeof instagramRaw === 'object') {
+    const ig: SocialShareInstagram = {};
+    const story = sanitizeStory(instagramRaw.story as Record<string, unknown> | undefined);
+    const post = sanitizePost(instagramRaw.post as Record<string, unknown> | undefined);
+    const dm = sanitizeString((instagramRaw.directMessage as Record<string, unknown> | undefined)?.text);
+    if (story) ig.story = story;
+    if (post) ig.post = post;
+    if (dm) ig.directMessage = { text: dm };
+    if (Object.keys(ig).length) out.instagram = ig;
+  }
+
+  if (facebookRaw && typeof facebookRaw === 'object') {
+    const fb: SocialShareFacebook = {};
+    const story = sanitizeStory(facebookRaw.story as Record<string, unknown> | undefined);
+    const timeline = sanitizeTimeline(facebookRaw.timeline as Record<string, unknown> | undefined);
+    if (story) fb.story = story;
+    if (timeline) fb.timeline = timeline;
+    if (Object.keys(fb).length) out.facebook = fb;
+  }
+
+  return out;
+}
 
 function normalizeInput(body: Record<string, unknown>): BlogInput {
   const has = (k: string) => body[k] !== undefined;
@@ -46,6 +140,16 @@ function normalizeInput(body: Record<string, unknown>): BlogInput {
     if (raw.robotsIndex !== undefined) seo.robotsIndex = Boolean(raw.robotsIndex);
     if (raw.robotsFollow !== undefined) seo.robotsFollow = Boolean(raw.robotsFollow);
     out.seo = seo;
+  }
+
+  // Per-destination social share config.
+  // Provided (even empty) → replace persisted config; omitted → unchanged.
+  if (has('socialSharing')) {
+    if (body.socialSharing && typeof body.socialSharing === 'object') {
+      out.socialSharing = sanitizeSocialSharing(body.socialSharing) ?? {};
+    } else {
+      out.socialSharing = {};
+    }
   }
 
   return out;

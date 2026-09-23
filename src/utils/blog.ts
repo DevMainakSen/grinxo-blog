@@ -6,6 +6,7 @@ import type { Blog } from '../types/blog';
  * - `status` always defined
  * - `featuredImage`/`thumbnail` kept in sync
  * - `seo` always an object
+ * - `socialSharing` always an object
  */
 export function normalizeBlog(blog: Blog): Blog {
   const featuredImage = blog.featuredImage || blog.thumbnail || '';
@@ -17,6 +18,7 @@ export function normalizeBlog(blog: Blog): Blog {
     isActive: blog.isActive ?? true,
     sections: blog.sections ?? [],
     seo: blog.seo ?? {},
+    socialSharing: blog.socialSharing ?? {},
   };
 }
 
@@ -41,5 +43,6 @@ export function toBlogPayload(blog: Blog): Record<string, unknown> {
     scheduledAt: blog.scheduledAt,
     sections: blog.sections ?? [],
     seo: blog.seo ?? {},
+    socialSharing: blog.socialSharing ?? {},
   };
 }

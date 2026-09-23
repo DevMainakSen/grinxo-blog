@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Blog } from '../../types/blog';
 import { useEngagement } from '../../hooks/useEngagement';
-import { resolveCanonicalUrl, resolveOgImage } from '../../utils/seo';
+import { resolveCanonicalUrl } from '../../utils/seo';
+import { getShareContent, toTarget } from '../../utils/socialShare';
 import {
   canShareFiles,
   downloadImage,
@@ -173,11 +174,17 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
   const popoverRef = useRef<HTMLDivElement>(null);
   const openedAt = useRef(0);
 
-  // The public, shareable URL + assets. Draft/scheduled/inactive blogs never
-  // reach this component — it only renders on public blog pages.
+  // The public, shareable URL. Draft/scheduled/inactive blogs never reach
+  // this component — it only renders on public blog pages. The plain URL is
+  // canonical (no UTM); per-destination URLs are resolved on demand below.
   const shareUrl = resolveCanonicalUrl(blog);
-  const shareImage = resolveOgImage(blog);
-  const shareText = [blog.title, blog.excerpt].filter(Boolean).join('\n\n');
+
+  // Active fallback panel (if any) drives copy/download with that destination's
+  // resolved content (image, text, hashtags, UTM'd link via getShareContent).
+  const activeContent =
+    view.panel === 'fallback' ? getShareContent(blog, toTarget(view.platform, view.mode)) : null;
+  const copyUrl = activeContent ? activeContent.url : shareUrl;
+  const fallbackHasImage = activeContent ? Boolean(activeContent.image) : true;
 
   // Close the share popover on outside click (ignoring the press that opened it)
   // and on Escape. Nothing closes purely on hover, keeping the menu stable.
@@ -207,7 +214,7 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(copyUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -235,10 +242,13 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
    *  calling code should show the honest fallback panel instead. */
   async function tryNativeShare(platform: PlatformKey, opt: SubOption): Promise<boolean> {
     const { appName } = PLATFORMS[platform];
+    // Resolve this destination's exact share content (image, text, hashtags,
+    // UTM'd URL) — the same resolver used by the admin live preview.
+    const content = getShareContent(blog, toTarget(platform, opt.mode));
     try {
       if (!isNativeShareSupported()) return true;
       if (opt.kind === 'text') {
-        const result = await nativeShare({ title: blog.title, text: shareText, url: shareUrl });
+        const result = await nativeShare({ title: content.title, text: content.text, url: content.url });
         if (result === 'shared') {
           setShareMessage(
             `Share sheet opened. If you picked ${appName}, choose the conversation there.`
@@ -252,16 +262,16 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
 
       // Story + Post both hinge on handing an image to the native share sheet.
       if (!canShareFiles()) return true;
-      if (!shareImage) {
+      if (!content.image) {
         setShareMessage('This blog has no image to attach. Copy the link below instead.');
         return true;
       }
-      const file = await getImageFile(shareImage, blog.slug || 'grinxo-blog');
+      const file = await getImageFile(content.image, blog.slug || 'grinxo-blog');
       if (!file) {
         setShareMessage("Couldn't load the image for sharing. Copy the link below instead.");
         return true;
       }
-      const result = await nativeShare({ files: [file], text: shareText });
+      const result = await nativeShare({ files: [file], text: content.text });
       if (result === 'shared') {
         setShareMessage(
           opt.mode === 'story'
@@ -284,9 +294,10 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
     //    the dialog itself is the UX and never counts as "posted".
     if (opt.kind === 'link') {
       const cfg = PLATFORMS[platform];
+      const content = getShareContent(blog, toTarget(platform, opt.mode));
       if (prefersNativeShareSheet() && isNativeShareSupported()) {
         setShareBusy(true);
-        const result = await nativeShare({ title: blog.title, text: shareText, url: shareUrl });
+        const result = await nativeShare({ title: content.title, text: content.text, url: content.url });
         setShareBusy(false);
         if (result === 'shared') {
           setShareMessage(
@@ -298,7 +309,7 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
         // Unsupported once we actually tried — fall through to the web dialog.
       }
       if (cfg.sharer) {
-        const opened = openInNewTab(cfg.sharer(shareUrl));
+        const opened = openInNewTab(cfg.sharer(content.url));
         setShareMessage(
           opened
             ? `${cfg.appName}'s share window opened — finish the post there.`
@@ -318,20 +329,21 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
     );
   };
 
-  const handleDownloadImage = async (platform: PlatformKey) => {
-    if (!shareImage) {
+  const handleDownloadImage = async (platform: PlatformKey, mode: ShareMode) => {
+    const content = getShareContent(blog, toTarget(platform, mode));
+    if (!content.image) {
       setShareMessage('This blog has no image to download.');
       return;
     }
     const { appName } = PLATFORMS[platform];
     setShareBusy(true);
     setShareMessage(null);
-    const saved = await downloadImage(shareImage, blog.slug || 'grinxo-blog');
+    const saved = await downloadImage(content.image, blog.slug || 'grinxo-blog');
     setShareBusy(false);
     if (saved) {
       setShareMessage(`Image downloaded. Upload it in the ${appName} app.`);
     } else {
-      const opened = openInNewTab(shareImage);
+      const opened = openInNewTab(content.image);
       setShareMessage(
         opened
           ? "Download wasn't available — the image opened in a new tab. Long-press to save it."
@@ -379,7 +391,7 @@ export default function BlogActions({ blog, variant = 'hero' }: BlogActionsProps
           onBackToRoot={() => setView({ panel: 'root' })}
           onBackToPlatform={(platform) => setView({ panel: 'submenu', platform })}
           onPickOption={handlePickOption}
-          hasImage={Boolean(shareImage)}
+          hasImage={fallbackHasImage}
           shareBusy={shareBusy}
           shareMessage={shareMessage}
           onDownload={handleDownloadImage}
@@ -482,7 +494,7 @@ function SharePopover({
   hasImage: boolean;
   shareBusy: boolean;
   shareMessage: string | null;
-  onDownload: (platform: PlatformKey) => void;
+  onDownload: (platform: PlatformKey, mode: ShareMode) => void;
 }) {
   const GAP = 8;
   const spec =
@@ -617,7 +629,7 @@ function SharePopover({
               className="share-popover__option"
               role="menuitem"
               disabled={shareBusy}
-              onClick={() => onDownload(platform.key)}
+              onClick={() => onDownload(platform.key, fallback.mode)}
             >
               <span className="material-symbols-outlined" aria-hidden="true">download</span>
               <span>{shareBusy ? 'Downloading…' : 'Download image'}</span>

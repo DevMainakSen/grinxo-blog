@@ -6,6 +6,7 @@ import SchedulePublishModal, {
   type ScheduleValue,
 } from './SchedulePublishModal';
 import SeoSection from './SeoSection';
+import SocialSharingSection from './SocialSharingSection';
 import PreviewModal from './PreviewModal';
 import { buildContentHtml, blogHasSectionContent } from '../../utils/articleContent';
 import { formatScheduledAt, toDateInputValue } from '../../utils/date';
@@ -324,6 +325,12 @@ export default function BlogEditor({
         onChange={(seo: BlogSeo) => set('seo', seo)}
       />
 
+      {/* Social Sharing */}
+      <SocialSharingSection
+        blog={draft}
+        onChange={(socialSharing) => set('socialSharing', socialSharing)}
+      />
+
       {submitError && <div className="alert alert--error">{submitError}</div>}
 
       <div className="editor-actions">
@@ -396,6 +403,7 @@ function buildInitial(initial?: Blog, presets?: BlogEditorProps['presets']): Blo
       featured: initial.featured ?? false,
       tags: initial.tags ?? [],
       seo: initial.seo ?? {},
+      socialSharing: initial.socialSharing ?? {},
     };
   }
   return {
@@ -415,6 +423,7 @@ function buildInitial(initial?: Blog, presets?: BlogEditorProps['presets']): Blo
     status: 'draft' as const,
     sections: [blankSection()],
     seo: {},
+    socialSharing: {},
   };
 }
 

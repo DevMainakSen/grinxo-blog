@@ -40,6 +40,8 @@ export interface Blog {
   savedBy?: string[];
   /** SEO metadata for search engines and social sharing. */
   seo?: BlogSeo;
+  /** Admin-configured per-destination share content (Instagram & Facebook). */
+  socialSharing?: BlogSocialSharing;
 }
 
 export interface BlogSeo {
@@ -53,6 +55,56 @@ export interface BlogSeo {
   ogImage?: string;
   robotsIndex?: boolean;
   robotsFollow?: boolean;
+}
+
+/** Text shown at the top of an Instagram/facebook Story: optional title line + body text. */
+export interface SocialShareStory {
+  image?: string;
+  title?: string;
+  text?: string;
+  hashtags?: string[];
+}
+
+/** Feed post content (Instagram posts / feed images). */
+export interface SocialSharePost {
+  image?: string;
+  caption?: string;
+  hashtags?: string[];
+}
+
+/** Free-form message body for an Instagram direct message. */
+export interface SocialShareDm {
+  text?: string;
+}
+
+/** Facebook link share on the Timeline (link preview card). */
+export interface SocialShareTimeline {
+  image?: string;
+  title?: string;
+  description?: string;
+  text?: string;
+  hashtags?: string[];
+}
+
+export interface SocialShareInstagram {
+  story?: SocialShareStory;
+  post?: SocialSharePost;
+  directMessage?: SocialShareDm;
+}
+
+export interface SocialShareFacebook {
+  story?: SocialShareStory;
+  timeline?: SocialShareTimeline;
+}
+
+/**
+ * Per-destination, admin-configured share content. Every field is optional —
+ * absent values fall back to blog-derived content (SEO/OG values, excerpt, etc.)
+ * at share time via the centralized resolver (src/utils/socialShare.ts).
+ */
+export interface BlogSocialSharing {
+  instagram?: SocialShareInstagram;
+  facebook?: SocialShareFacebook;
 }
 
 export type BlogCategory = {

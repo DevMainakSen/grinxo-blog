@@ -19,6 +19,47 @@ export interface BlogSeo {
   robotsFollow?: boolean;
 }
 
+export interface SocialShareStory {
+  image?: string;
+  title?: string;
+  text?: string;
+  hashtags?: string[];
+}
+
+export interface SocialSharePost {
+  image?: string;
+  caption?: string;
+  hashtags?: string[];
+}
+
+export interface SocialShareDm {
+  text?: string;
+}
+
+export interface SocialShareTimeline {
+  image?: string;
+  title?: string;
+  description?: string;
+  text?: string;
+  hashtags?: string[];
+}
+
+export interface SocialShareInstagram {
+  story?: SocialShareStory;
+  post?: SocialSharePost;
+  directMessage?: SocialShareDm;
+}
+
+export interface SocialShareFacebook {
+  story?: SocialShareStory;
+  timeline?: SocialShareTimeline;
+}
+
+export interface BlogSocialSharing {
+  instagram?: SocialShareInstagram;
+  facebook?: SocialShareFacebook;
+}
+
 export interface Blog {
   id: string;
   title: string;
@@ -50,6 +91,8 @@ export interface Blog {
   savedBy?: string[];
   /** SEO metadata for search engines and social sharing. */
   seo?: BlogSeo;
+  /** Admin-configured per-destination share content (Instagram & Facebook). */
+  socialSharing?: BlogSocialSharing;
 }
 
 export type BlogStatus = 'draft' | 'scheduled' | 'published';
@@ -86,4 +129,6 @@ export interface BlogInput {
   sections?: BlogSection[];
   /** SEO metadata. */
   seo?: BlogSeo;
+  /** Per-destination share content. Absent → blog keeps its existing config. */
+  socialSharing?: BlogSocialSharing;
 }
