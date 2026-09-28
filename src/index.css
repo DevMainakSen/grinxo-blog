@@ -1393,7 +1393,11 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
 .article-prose p { margin-bottom: 1.2rem; }
 
 /* Never let inline rich content (break the mobile layout) */
-.article-prose img { max-width: 100%; height: auto; }
+.article-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
 .article-prose figure { margin: 1.5rem 0; }
 .article-prose figcaption {
   font-size: 0.82rem;
@@ -1410,6 +1414,57 @@ button { cursor: pointer; font-family: inherit; border: none; background: none; 
   border-radius: var(--radius-sm);
   padding: 1rem;
   overflow-x: auto;
+}
+
+/* =========================================================
+   SECTION IMAGE POSITION — desktop only
+   Side-by-side slots are marked up by the section serializer as
+   .article-section--image-left / --image-right. Below 960px the markup
+   falls back to the ordinary stacked article-prose flow, so tablet and
+   mobile are untouched. Columns are placed with grid areas instead of
+   `order`, which keeps the text body first in the DOM for every
+   viewport and never relies on visual/DOM reordering.
+   ========================================================= */
+@media (min-width: 961px) {
+  .article-prose .article-section {
+    display: grid;
+    gap: 0 2.25rem;
+    align-items: start;
+    margin-bottom: 2.5rem;
+  }
+
+  .article-prose .article-section > * { min-width: 0; }
+
+  .article-prose .article-section--image-left {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+  }
+  .article-prose .article-section--image-left > .article-section__body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .article-prose .article-section--image-left > .article-figure {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .article-prose .article-section--image-right {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+  }
+  .article-prose .article-section--image-right > .article-section__body {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .article-prose .article-section--image-right > .article-figure {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* The figure sits in a column here, so the full-width figure margin
+     would misalign the row. */
+  .article-prose .article-section > .article-figure { margin: 0; }
+
+  /* Last child spacing is handled by the wrapper margin. */
+  .article-prose .article-section__body > :last-child { margin-bottom: 0; }
 }
 .article-prose :is(table) {
   display: block;

@@ -3,6 +3,7 @@ import * as store from '../services/blogStorage.ts';
 import type {
   BlogInput,
   BlogSeo,
+  BlogSection,
   BlogSocialSharing,
   SocialShareFacebook,
   SocialShareInstagram,
@@ -10,11 +11,36 @@ import type {
   SocialShareStory,
   SocialShareTimeline,
 } from '../types/blog.ts';
+import { resolveImagePosition } from '../types/blog.ts';
 
 function sanitizeString(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   const s = String(value).trim();
   return s === '' ? undefined : s;
+}
+
+/**
+ * Normalise one section coming from the API. Only the known fields are kept,
+ * and `imagePosition` is reduced to a supported value so an unexpected or
+ * hand-crafted payload can never reach the rendered HTML.
+ */
+function sanitizeSection(raw: unknown): BlogSection {
+  const body = (raw ?? {}) as Record<string, unknown>;
+  const section: BlogSection = {
+    id: String(body.id ?? ''),
+    heading: String(body.heading ?? ''),
+    content: String(body.content ?? ''),
+  };
+  const image = sanitizeString(body.image);
+  if (image !== undefined) section.image = image;
+  const caption = sanitizeString(body.imageCaption);
+  if (caption !== undefined) section.imageCaption = caption;
+  // A position only means anything when an image is present; otherwise the
+  // section renders as the default `bottom` layout.
+  if (image !== undefined) {
+    section.imagePosition = resolveImagePosition(body.imagePosition);
+  }
+  return section;
 }
 
 function sanitizeHashtags(value: unknown): string[] | undefined {
@@ -105,7 +131,9 @@ function normalizeInput(body: Record<string, unknown>): BlogInput {
   if (has('featuredImage') && body.featuredImage) out.thumbnail = String(body.featuredImage);
   if (has('thumbnail') && body.thumbnail) out.thumbnail = String(body.thumbnail);
   if (has('category')) out.category = String(body.category);
-  if (has('sections')) out.sections = Array.isArray(body.sections) ? (body.sections as BlogInput['sections']) : [];
+  if (has('sections')) {
+    out.sections = Array.isArray(body.sections) ? body.sections.map(sanitizeSection) : [];
+  }
   if (has('content')) out.content = String(body.content);
   if (has('author')) out.author = String(body.author);
   if (has('authorAvatar')) out.authorAvatar = String(body.authorAvatar);

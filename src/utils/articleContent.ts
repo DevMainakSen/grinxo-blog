@@ -1,4 +1,5 @@
-import type { BlogSection } from '../types/blog';
+import type { BlogSection, SectionImagePosition } from '../types/blog';
+import { resolveImagePosition } from '../types/blog';
 
 /** Escape HTML-sensitive characters for safe text embedding. */
 function escapeHtml(text: string): string {
@@ -19,6 +20,72 @@ function wrapParagraphs(text: string): string {
     .join('\n');
 }
 
+/** Heuristic used to tell editor-generated HTML from legacy plain text. */
+function hasHtmlMarkup(text: string): boolean {
+  return /<[a-zA-Z][\s\S]*>/.test(text);
+}
+
+/**
+ * True when a rich-text fragment contains something a reader would see.
+ * The editor emits an empty document as `<p></p>`, so tag presence alone is
+ * not enough to decide whether a caption should be rendered.
+ */
+function hasVisibleText(html: string): boolean {
+  return (
+    html
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#x27;|&#39;/gi, "'")
+      .trim().length > 0
+  );
+}
+
+/**
+ * Render a caption. Captions authored in the rich-text editor are emitted as
+ * HTML so formatting survives; legacy plain-text captions are escaped so they
+ * keep rendering exactly as typed. Returns '' for an effectively empty caption
+ * so no empty <figcaption> is emitted.
+ */
+function buildCaptionHtml(caption: string | undefined): string {
+  const value = (caption ?? '').trim();
+  if (!value) return '';
+  if (!hasHtmlMarkup(value)) return escapeHtml(value);
+  return hasVisibleText(value) ? value : '';
+}
+
+function buildFigureHtml(section: BlogSection): string {
+  const image = (section.image ?? '').trim();
+  if (!image) return '';
+  const alt = escapeHtml((section.heading || 'Section image').trim());
+  const caption = buildCaptionHtml(section.imageCaption);
+  const fig = caption ? `<figcaption>${caption}</figcaption>` : '';
+  return `<figure class="article-figure"><img src="${escapeHtml(image)}" alt="${alt}" />${fig}</figure>`;
+}
+
+/**
+ * Wrap the text body and figure in a two-column container for side-by-side
+ * positions. The text body always comes first in the DOM so the stacked mobile
+ * layout keeps its existing heading → text → image reading order; the desktop
+ * columns are produced by grid placement, not by reordering the DOM.
+ */
+function buildPositionedSection(body: string[], figure: string, position: SectionImagePosition): string {
+  if (position === 'bottom') {
+    return [...body, figure].join('\n');
+  }
+  return [
+    `<section class="article-section article-section--image-${position}">`,
+    '<div class="article-section__body">',
+    body.join('\n'),
+    '</div>',
+    figure,
+    '</section>',
+  ].join('\n');
+}
+
 /**
  * Build the article body HTML from the editor's structured sections, matching the
  * backend's server-side `buildContentHtml`. This lets Preview render the *current
@@ -26,29 +93,23 @@ function wrapParagraphs(text: string): string {
  *
  * Each section's `content` is either plain text (legacy) or rich HTML produced by
  * the rich-text editor; rich HTML is rendered verbatim so formatting survives.
+ * `imagePosition` is a semantic token (`left` | `right` | `bottom`); sections
+ * without a side-by-side position keep the original flat markup.
  */
 export function buildContentHtml(sections: BlogSection[]): string {
   return sections
     .map((section) => {
-      const parts: string[] = [];
+      const body: string[] = [];
       if ((section.heading ?? '').trim()) {
-        parts.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
+        body.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
       }
-      const body = (section.content ?? '').trim();
-      if (body.length > 0) {
-        const looksLikeHtml = /<[a-zA-Z][\s\S]*>/.test(body);
-        parts.push(looksLikeHtml ? body : wrapParagraphs(body));
+      const content = (section.content ?? '').trim();
+      if (content.length > 0) {
+        body.push(hasHtmlMarkup(content) ? content : wrapParagraphs(content));
       }
-      if (section.image) {
-        const alt = escapeHtml((section.heading || 'Section image').trim());
-        const cap = section.imageCaption
-          ? `<figcaption>${escapeHtml(section.imageCaption)}</figcaption>`
-          : '';
-        parts.push(
-          `<figure class="article-figure"><img src="${escapeHtml(section.image)}" alt="${alt}" />${cap}</figure>`
-        );
-      }
-      return parts.join('\n');
+      const figure = buildFigureHtml(section);
+      if (!figure) return body.join('\n');
+      return buildPositionedSection(body, figure, resolveImagePosition(section.imagePosition));
     })
     .join('\n');
 }

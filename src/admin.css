@@ -485,6 +485,19 @@
   .preview-modal__article .container { --container-px: 1.5rem; }
   .preview-modal__article .article-layout { grid-template-columns: 1fr; }
   .preview-modal__article .article-sidebar { position: static; }
+  /* Section image position is a desktop-only layout. The public page turns the
+     two-column grid on at viewport >= 961px, so the Mobile frame (container
+     <= 960px) has to turn it back off here — otherwise a container query this
+     narrow still matches the desktop media query and the grid leaks into the
+     phone preview. These declarations are the exact inverse of the desktop
+     grid rules in index.css, so the preview matches the live mobile page. */
+  .preview-modal__body .preview-modal__article .article-section {
+    display: block;
+    margin-bottom: 0;
+  }
+  .preview-modal__body .preview-modal__article .article-section > .article-figure {
+    margin: 1.5rem 0;
+  }
 }
 @container (max-width: 600px) {
   .preview-modal__article .container { --container-px: 1rem; }
@@ -642,6 +655,24 @@
 .icon-btn--danger:not(:disabled):hover { border-color: #d64545; color: #d64545; background: #fdecec; }
 
 .section-card__image-row { display: grid; grid-template-columns: 220px 1fr; gap: 1rem; align-items: start; margin-top: 0.25rem; }
+
+/* Position picker and caption stack in the text column beside the image. */
+.section-card__image-row > .image-position,
+.section-card__image-row > .field--caption { grid-column: 2; }
+
+.image-position__hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+.image-position__hint strong { color: var(--color-text-secondary); }
+.image-position__actual { margin: 0.2rem 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--color-text-muted); }
+.image-position__actual--warn { color: #9a5b00; }
+
+/* The caption is a secondary control, so it gets a shorter editing area. */
+.field--caption .rte-content { min-height: 0; font-size: 0.88rem; padding: 0.55rem 0.75rem; }
+.field--caption .rte-content p:last-child { margin-bottom: 0; }
 
 /* --- Rich text editor --- */
 .rte {
@@ -1158,6 +1189,8 @@
   .blog-editor__grid { grid-template-columns: 1fr; }
   .blog-editor__sidebar { position: static; }
   .section-card__image-row { grid-template-columns: 1fr; }
+  .section-card__image-row > .image-position,
+  .section-card__image-row > .field--caption { grid-column: 1; }
   .social-section__grid { grid-template-columns: 1fr; }
   .social-section__preview-col { position: static; }
 }

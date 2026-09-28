@@ -1,9 +1,33 @@
+/**
+ * Desktop placement of a section image relative to the section text.
+ * `bottom` is the default for every section that has no explicit position.
+ * `top` is intentionally not offered.
+ */
+export type SectionImagePosition = 'left' | 'right' | 'bottom';
+
+/** Canonical, ordered list of valid image positions. Used to validate API input. */
+export const SECTION_IMAGE_POSITIONS: readonly SectionImagePosition[] = [
+  'left',
+  'right',
+  'bottom',
+] as const;
+
+/** Resolve a persisted/unknown value to a supported position. */
+export function resolveImagePosition(value: unknown): SectionImagePosition {
+  return SECTION_IMAGE_POSITIONS.includes(value as SectionImagePosition)
+    ? (value as SectionImagePosition)
+    : 'bottom';
+}
+
 export interface BlogSection {
   id: string;
   heading: string;
   content: string;
   image?: string;
+  /** Caption below the section image. Stores rich text (HTML) from the editor. */
   imageCaption?: string;
+  /** Desktop-only image placement. Absent or unrecognised → 'bottom'. */
+  imagePosition?: SectionImagePosition;
 }
 
 export interface BlogSeo {

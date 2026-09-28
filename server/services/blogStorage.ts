@@ -1,7 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Blog, BlogInput, BlogSection, BlogSeo } from '../types/blog.ts';
+import type {
+  Blog,
+  BlogInput,
+  BlogSection,
+  BlogSeo,
+  SectionImagePosition,
+} from '../types/blog.ts';
+import { resolveImagePosition } from '../types/blog.ts';
 import type { SlugRedirect } from '../types/redirect.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -230,32 +237,79 @@ function sanitizeCss(css: string): string {
  * rich HTML produced by the admin rich-text editor. Plain text is wrapped in
  * <p> and escaped; rich HTML is sanitised against an allow-list and rendered
  * verbatim so all formatting (bold, color, lists, links, alignment) survives.
+ *
+ * `imagePosition` is a semantic token (`left` | `right` | `bottom`) rather than
+ * CSS. Side-by-side positions are wrapped in an .article-section container
+ * whose columns are laid out by the stylesheet; the text body stays first in the
+ * DOM so the stacked mobile layout keeps its existing reading order.
  */
 export function buildContentHtml(sections: BlogSection[]): string {
   return sections
     .map((section) => {
-      const parts: string[] = [];
+      const body: string[] = [];
       if (section.heading.trim()) {
-        parts.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
+        body.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
       }
-      const body = (section.content ?? '').trim();
-      if (body.length > 0) {
-        const looksLikeHtml = /<[a-zA-Z][\s\S]*>/.test(body);
-        parts.push(looksLikeHtml ? sanitizeHtml(body) : wrapParagraphs(body));
+      const content = (section.content ?? '').trim();
+      if (content.length > 0) {
+        const looksLikeHtml = /<[a-zA-Z][\s\S]*>/.test(content);
+        body.push(looksLikeHtml ? sanitizeHtml(content) : wrapParagraphs(content));
       }
-      if (section.image) {
-        const alt = escapeHtml(section.heading || 'Section image');
-        const safeSrc = sanitizeUrl(section.image);
-        if (safeSrc) {
-          const fig = section.imageCaption
-            ? `<figcaption>${escapeHtml(section.imageCaption)}</figcaption>`
-            : '';
-          parts.push(`<figure class="article-figure"><img src="${escapeHtml(safeSrc)}" alt="${alt}" />${fig}</figure>`);
-        }
-      }
-      return parts.join('\n');
+      const figure = buildFigureHtml(section);
+      if (!figure) return body.join('\n');
+      return buildPositionedSection(body, figure, resolveImagePosition(section.imagePosition));
     })
     .join('\n');
+}
+
+/**
+ * Render the section image plus its caption, or '' when the image URL is
+ * missing/unsafe. Captions are rich text from the admin editor; legacy
+ * plain-text captions are escaped so they render exactly as typed.
+ */
+function buildFigureHtml(section: BlogSection): string {
+  const safeSrc = sanitizeUrl(section.image);
+  if (!safeSrc) return '';
+  const alt = escapeHtml((section.heading || 'Section image').trim());
+  const caption = buildCaptionHtml(section.imageCaption);
+  const fig = caption ? `<figcaption>${caption}</figcaption>` : '';
+  return `<figure class="article-figure"><img src="${escapeHtml(safeSrc)}" alt="${alt}" />${fig}</figure>`;
+}
+
+function buildCaptionHtml(caption: string | undefined): string {
+  const value = (caption ?? '').trim();
+  if (!value) return '';
+  if (!/<[a-zA-Z][\s\S]*>/.test(value)) return escapeHtml(value);
+  const sanitized = sanitizeHtml(value);
+  return hasVisibleText(sanitized) ? sanitized : '';
+}
+
+/** See the matching helper in src/utils/articleContent.ts. */
+function hasVisibleText(html: string): boolean {
+  return (
+    html
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .trim().length > 0
+  );
+}
+
+function buildPositionedSection(
+  body: string[],
+  figure: string,
+  position: SectionImagePosition
+): string {
+  if (position === 'bottom') {
+    return [...body, figure].join('\n');
+  }
+  return [
+    `<section class="article-section article-section--image-${position}">`,
+    '<div class="article-section__body">',
+    body.join('\n'),
+    '</div>',
+    figure,
+    '</section>',
+  ].join('\n');
 }
 
 function wrapParagraphs(text: string): string {
@@ -395,7 +449,11 @@ export function createBlog(input: BlogInput): Blog {
     slug: input.slug,
     excerpt: input.excerpt ?? '',
     thumbnail: input.thumbnail,
-    content: input.content ?? buildContentHtml(sections),
+    // The server owns the generated body whenever structured sections are
+    // supplied, so the HTML the public renderer consumes can never drift from
+    // the stored sections (image positions included). A caller that sends only
+    // `content` — seed data, API clients, legacy blogs — keeps its own body.
+    content: sections.length > 0 ? buildContentHtml(sections) : (input.content ?? ''),
     featuredImage: input.thumbnail ?? '',
     author: input.author ?? 'GrinXO Team',
     authorAvatar: input.authorAvatar,
@@ -453,10 +511,10 @@ export function updateBlog(id: string, input: BlogInput): Blog | undefined {
     slug: fullInput.slug,
     excerpt: fullInput.excerpt,
     thumbnail: fullInput.thumbnail,
-    content: input.content !== undefined
-      ? input.content
-      : input.sections
-        ? buildContentHtml(sections)
+    content: sections.length > 0
+      ? buildContentHtml(sections)
+      : input.content !== undefined
+        ? input.content
         : existing.content,
     featuredImage: fullInput.thumbnail,
     author: fullInput.author,
