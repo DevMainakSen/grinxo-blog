@@ -32,6 +32,79 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Named entities the rich-text editor may legitimately emit. Only these are
+ * decoded; anything unrecognised is left as literal text and safely re-escaped.
+ */
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: '\u00A0',
+  quot: '"',
+  amp: '&',
+  apos: "'",
+  lt: '<',
+  gt: '>',
+  hellip: '\u2026',
+  mdash: '\u2014',
+  ndash: '\u2013',
+  lsquo: '\u2018',
+  rsquo: '\u2019',
+  ldquo: '\u201C',
+  rdquo: '\u201D',
+};
+
+/**
+ * Resolve one entity reference to its character. Unknown, zero, out-of-range
+ * and lone-surrogate references are returned untouched so their `&` still gets
+ * escaped by the caller.
+ */
+function decodeEntity(match: string, body: string): string {
+  if (body[0] === '#') {
+    const codePoint =
+      body[1] === 'x' || body[1] === 'X'
+        ? Number.parseInt(body.slice(2), 16)
+        : Number.parseInt(body.slice(1), 10);
+    if (!Number.isFinite(codePoint) || codePoint <= 0 || codePoint > 0x10ffff) return match;
+    if (codePoint >= 0xd800 && codePoint <= 0xdfff) return match;
+    return String.fromCodePoint(codePoint);
+  }
+  return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+}
+
+/** Single-pass entity decode. `&amp;nbsp;` resolves to a literal "&nbsp;", not a space. */
+function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#[0-9a-f]+|#[xX][0-9a-f]+|[a-z][a-z0-9]*);/gi, decodeEntity);
+}
+
+/**
+ * Escape a rich-text *text node* for embedding in generated HTML.
+ *
+ * Editor HTML already arrives entity-encoded, so escaping `&` first would
+ * double-encode `&nbsp;` into `&amp;nbsp;` and print the literal characters
+ * "&nbsp;" to the reader. Decoding first keeps exactly one encode pass.
+ *
+ * Attribute values must NOT be routed through here: sanitizeAttrs already
+ * decodes them, so a second decode would defeat its safety checks.
+ */
+function escapeTextNode(text: string): string {
+  return escapeHtml(decodeHtmlEntities(text));
+}
+
+/**
+ * Turn non-breaking spaces into ordinary spaces and drop the whitespace that
+ * pastes strand at the end of a block.
+ *
+ * Content pasted from Word/Docs arrives with a trailing `&nbsp;` on nearly
+ * every paragraph, and a non-breaking space anywhere in prose blocks line
+ * wrapping, which pushes text past narrow mobile viewports. HTML collapses
+ * ordinary spaces, so this is visually lossless for the reader.
+ */
+function normalizeRichTextHtml(html: string): string {
+  return html
+    .replace(/&nbsp;|&#160;|&#xa0;|\u00A0/gi, ' ')
+    .replace(/[ \t]+(<\/)/g, '$1')
+    .replace(/[ \t]+$/, '');
+}
+
 const SAFE_URL_PROTOCOLS = new Set(['http:', 'https:']);
 
 /**
@@ -87,7 +160,7 @@ function sanitizeHtml(html: string): string {
   let m: RegExpExecArray | null;
 
   while ((m = tagRe.exec(src)) !== null) {
-    out.push(escapeHtml(src.slice(lastIndex, m.index)));
+    out.push(escapeTextNode(src.slice(lastIndex, m.index)));
     const closing = m[1] === '/';
     const tagName = m[2].toLowerCase();
     const selfClosing = m[4] === '/';
@@ -114,7 +187,7 @@ function sanitizeHtml(html: string): string {
     }
     lastIndex = fullEnd;
   }
-  out.push(escapeHtml(src.slice(lastIndex)));
+  out.push(escapeTextNode(src.slice(lastIndex)));
 
   return out.join('').trim();
 }
@@ -250,7 +323,7 @@ export function buildContentHtml(sections: BlogSection[]): string {
       if (section.heading.trim()) {
         body.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
       }
-      const content = (section.content ?? '').trim();
+      const content = normalizeRichTextHtml(section.content ?? '').trim();
       if (content.length > 0) {
         const looksLikeHtml = /<[a-zA-Z][\s\S]*>/.test(content);
         body.push(looksLikeHtml ? sanitizeHtml(content) : wrapParagraphs(content));
@@ -277,7 +350,7 @@ function buildFigureHtml(section: BlogSection): string {
 }
 
 function buildCaptionHtml(caption: string | undefined): string {
-  const value = (caption ?? '').trim();
+  const value = normalizeRichTextHtml(caption ?? '').trim();
   if (!value) return '';
   if (!/<[a-zA-Z][\s\S]*>/.test(value)) return escapeHtml(value);
   const sanitized = sanitizeHtml(value);

@@ -11,6 +11,21 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#x27;');
 }
 
+/**
+ * Turn non-breaking spaces into ordinary spaces and drop the whitespace that
+ * pastes strand at the end of a block.
+ *
+ * Kept in step with the same helper in server/services/blogStorage.ts so
+ * Preview and the published article render identically. Escaping and
+ * sanitising are the server's job; this only normalises the source HTML.
+ */
+function normalizeRichTextHtml(html: string): string {
+  return html
+    .replace(/&nbsp;|&#160;|&#xa0;|\u00A0/gi, ' ')
+    .replace(/[ \t]+(<\/)/g, '$1')
+    .replace(/[ \t]+$/, '');
+}
+
 function wrapParagraphs(text: string): string {
   return text
     .split(/\n{2,}/)
@@ -51,7 +66,7 @@ function hasVisibleText(html: string): boolean {
  * so no empty <figcaption> is emitted.
  */
 function buildCaptionHtml(caption: string | undefined): string {
-  const value = (caption ?? '').trim();
+  const value = normalizeRichTextHtml(caption ?? '').trim();
   if (!value) return '';
   if (!hasHtmlMarkup(value)) return escapeHtml(value);
   return hasVisibleText(value) ? value : '';
@@ -103,7 +118,7 @@ export function buildContentHtml(sections: BlogSection[]): string {
       if ((section.heading ?? '').trim()) {
         body.push(`<h2>${escapeHtml(section.heading.trim())}</h2>`);
       }
-      const content = (section.content ?? '').trim();
+      const content = normalizeRichTextHtml(section.content ?? '').trim();
       if (content.length > 0) {
         body.push(hasHtmlMarkup(content) ? content : wrapParagraphs(content));
       }
