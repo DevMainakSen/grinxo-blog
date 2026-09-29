@@ -16,9 +16,11 @@ export function resolveImagePosition(value: unknown): SectionImagePosition {
 }
 
 /**
- * Non-destructive authoring guidance for each desktop position. Nothing is
- * cropped or rejected — the image always renders as uploaded, these values only
- * describe what tends to look best in that slot.
+ * Which permitted ratio tends to suit each desktop position.
+ *
+ * This is layout advice only — all four ratios in `ALLOWED_IMAGE_RATIOS`
+ * (2:3, 9:16, 16:9, 3:2) are accepted for any position, and enforcement lives
+ * in `src/utils/imageValidation.ts`. Images are never cropped or letterboxed.
  */
 export const SECTION_IMAGE_ASPECT_GUIDANCE: Record<
   SectionImagePosition,

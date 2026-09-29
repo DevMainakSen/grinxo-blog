@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react';
 import { uploadImage } from '../../services/blogApi';
+import {
+  describeImageRequirements,
+  validateBlogImage,
+} from '../../utils/imageValidation';
 
 interface ImagePickerProps {
   label: string;
@@ -9,6 +13,12 @@ interface ImagePickerProps {
   /** Extra class for sizing previews (e.g. wide banner vs square section). */
   className?: string;
   accept?: string;
+  /**
+   * Section images must match one of the permitted aspect ratios, measured from
+   * the file's own pixels. Banners, OG and social-share images are rendered at
+   * their own fixed ratios, so they are size-limited only.
+   */
+  enforceAspectRatio?: boolean;
 }
 
 export default function ImagePicker({
@@ -18,6 +28,7 @@ export default function ImagePicker({
   onChange,
   className,
   accept = 'image/jpeg,image/png,image/gif,image/webp',
+  enforceAspectRatio = false,
 }: ImagePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -28,6 +39,13 @@ export default function ImagePicker({
     setUploading(true);
     setError('');
     try {
+      // Validate before uploading: a rejected file never produces a URL, so it
+      // can never reach editor state, the draft, or a published/scheduled post.
+      const validation = await validateBlogImage(file, { requireAspectRatio: enforceAspectRatio });
+      if (!validation.ok) {
+        setError(validation.message);
+        return;
+      }
       const url = await uploadImage(file, folder);
       onChange(url);
     } catch (e) {
@@ -37,9 +55,17 @@ export default function ImagePicker({
     }
   }
 
+  const requirements = describeImageRequirements({ requireAspectRatio: enforceAspectRatio });
+
   return (
     <div className={`image-picker${className ? ` ${className}` : ''}`}>
       <span className="image-picker__label">{label}</span>
+
+      <ul className="image-picker__requirements">
+        {requirements.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
 
       {value ? (
         <div className="image-picker__preview-block">

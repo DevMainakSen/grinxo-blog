@@ -6,6 +6,7 @@ import {
   SECTION_IMAGE_POSITIONS,
 } from '../../types/blog';
 import ImagePicker from './ImagePicker';
+import { ALLOWED_IMAGE_RATIOS, matchAllowedRatio } from '../../utils/imageValidation';
 
 const RichTextEditor = lazy(() => import('./RichTextEditor'));
 
@@ -59,9 +60,12 @@ function formatRatio(width: number, height: number): string {
 }
 
 /**
- * Desktop-only, non-destructive ratio hint. The image is never cropped or
- * blocked: when the natural dimensions are known we report the real ratio and
- * flag a mismatch, otherwise we only state the recommendation.
+ * Position-specific guidance plus the image's real ratio.
+ *
+ * The permitted ratios are enforced when an image is selected (see
+ * `validateBlogImage`), so nothing here blocks anything: it reports what was
+ * measured against the permitted set, which also surfaces a pre-existing image
+ * that was stored before the rules existed.
  */
 function ImageRatioHint({
   position,
@@ -73,24 +77,22 @@ function ImageRatioHint({
   const guidance = SECTION_IMAGE_ASPECT_GUIDANCE[position];
   const base = (
     <p className="image-position__hint">
-      Recommended <strong>{guidance.label}</strong> — {guidance.hint}
+      Best suited here: <strong>{guidance.label}</strong> — {guidance.hint}
     </p>
   );
 
   if (!size || size.width <= 0 || size.height <= 0) return base;
 
-  const actual = size.width / size.height;
-  const recommended = guidance.width / guidance.height;
-  const withinTolerance = Math.abs(actual - recommended) / recommended <= 0.08;
+  const matched = matchAllowedRatio(size.width, size.height);
 
   return (
     <div className="image-position__ratio">
       {base}
-      <p className={`image-position__actual${withinTolerance ? '' : ' image-position__actual--warn'}`}>
+      <p className={`image-position__actual${matched ? '' : ' image-position__actual--warn'}`}>
         Current image: {formatRatio(size.width, size.height)} ({size.width}×{size.height}) —{' '}
-        {withinTolerance
-          ? 'close to the recommendation.'
-          : `differs from the recommended ${guidance.label}. It will still be published uncropped.`}
+        {matched
+          ? `matches the permitted ${matched}.`
+          : `not one of the permitted ratios (${ALLOWED_IMAGE_RATIOS.map((r) => r.label).join(', ')}). Replace it to publish.`}
       </p>
     </div>
   );
@@ -228,6 +230,7 @@ export default function SectionBuilder({ sections, onChange }: SectionBuilderPro
                     value={section.image}
                     onChange={(url) => setSectionImage(section.id, url)}
                     className="image-picker--section"
+                    enforceAspectRatio
                   />
                 </div>
 
